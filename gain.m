@@ -61,23 +61,67 @@ subplot(2,1,2); plot(...%tnl,0.5*rho.*xnl(:,1).^2.*out(1,:),...%
 %subplot(3,1,3); plot(t,xl(:,3)); title()
 
 %% Controllers
-% Debug B767 30000ft
-A = zeros(3,3); B =zeros(3,2); C = zeros(4,3);
-A(1,1) = -0.0889; A(1,2) = -32.2; A(2,1) = 3.66e-4; A (3,2) = 787;
-B(1,1) = -21.7; B(1,2) = 1.63e-4; B(2,1) = 1.73e-1;
-C(1,1) = 0.593; C(2,1) = 1e-3; C(4,2) = 4.72e4;
-
+DEBUG = false;
+if DEBUG
+    % Debug B767 30000ft
+    A = zeros(3,3); B =zeros(3,2); C = zeros(4,3);
+    A(1,1) = -0.0889; A(1,2) = -32.2; A(2,1) = 3.66e-4; A (3,2) = 787;
+    B(1,1) = -21.7; B(1,2) = 1.63e-4; B(2,1) = 1.73e-1;
+    C(1,1) = 0.593; C(2,1) = 1e-3; C(3,3) = 1; C(4,2) = 4.72e4;
+end
 Kps = zeros(2,4); Kis = zeros(2,4);
 K = [Kps;Kis];
 Ai = [A,B;zeros(2,3),zeros(2,2)]; Bi = [B,zeros(3,2);zeros(2,2),eye(2,2)];
-Ci = [C,zeros(4,2)];
+Ci = [C,zeros(4,2)]; Di = zeros(4,4);
 
 Acl = Ai - Bi*K*Ci;
 
-nKs = 11; Ks = linspace(-1,1,nKs);
+nKs = 310; Ks = linspace(0,5e-2,nKs);
+% Home-Made
 
-i = 1;
-K(1,1) = Ks(i);
-Acl = Ai - Bi*K*Ci;
-eig(Acl)
+iout = 3; % 1 - VIAS 3 - h
+iFor = 1; % 1,3 - CL 2,4 - T
+iForV = 1:4; At ={"CL Prop","T prop","CL int","T int"};
+iOutV = [1,3]; Bt = {"VIAS Feedback","h feedback"};
+
+lams = NaN(5,nKs);
+
+for iF = 1:length(iForV)
+    iFor = iForV(iF);
+    fig(iF) = figure();
+    for iO = 1:length(iOutV)
+        iout = iOutV(iO);
+        for iS = 1:2
+            idx = (2*iO-1)*(iS==1) + 2*iO*(iS==2);
+            ax(iF,iO) = subplot(length(iOutV),2,idx,"Parent",fig(iF)); hold(ax(iF,iO),'on');
+            K = [Kps;Kis];
+            for i=1:nKs
+                K(iFor,iout) = (-1)^(iS+1)*Ks(i);
+                Acl = Ai - Bi*K*Ci;
+                lams(:,i) = eig(Acl);
+                plot( ax(iF,iO),real(lams(:,i)),imag(lams(:,i)),'*k' )
+                title( ax(iF,iO),[At{iF},Bt{iO}] )
+                %lams_p =
+            end
+        end
+    end
+end
+fig = figure();
+ax = subplot(1,1,1,"Parent",fig); hold(ax,'on');
+for i = 1:length(lams(:,1))
+    plot( ax,real(lams(i,:)),imag(lams(i,:)),'k' )
+end
+% Trasformazione in SISO
+
+CiSISO = Ci(iout,:); DiSISO = zeros(1,1);
+BiSISO = Bi(:,iFor);
+lonsys = ss(Ai,BiSISO,CiSISO,DiSISO);
+r = rlocus(lonsys);
+for i = 1:length(r(:,1))
+    plot( ax,real(r(i,:)),imag(r(i,:)),'r--' )
+end
+figure()
+rl = rlocusplot(lonsys);
+
+%plot(real(r),imag(r))
 
