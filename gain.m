@@ -61,9 +61,9 @@ subplot(2,1,2); plot(...%tnl,0.5*rho.*xnl(:,1).^2.*out(1,:),...%
 %subplot(3,1,3); plot(t,xl(:,3)); title()
 
 %% Controllers
-Kps = zeros(4,2); Kis = zeros(4,2);
+Kps = zeros(2,4); Kis = zeros(2,4);
 K = [Kps;Kis];
 Ai = [A,B;zeros(2,3),zeros(2,2)]; Bi = [B,zeros(3,2);zeros(2,2),eye(2,2)];
 Ci = [C,zeros(4,2)];
 
-Acl = Ai - Bi*Ci*Kps;
+Acl = Ai - Bi*K*Ci;
