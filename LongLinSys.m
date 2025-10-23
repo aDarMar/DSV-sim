@@ -8,10 +8,11 @@ g = 9.81; gm = 1.4;
 CL = AC.m*g*2/(rho(2)*AC.Sw*x0(1)^2); % Trim CL
 K = 1/(pi*AC.ARw*AC.e); % K
 
-u0 = zeros(2,1); u0(1) = CL; u0(2) = 0.5*rho(2)*AC.Sw*x0(1)^2*( AC.CD0 + K*(CL-AC.CLmd)^2 );
+u0 = zeros(2,1); u0(1) = CL; u0(2) = rho(2)*0.5*AC.Sw*x0(1)^2*( AC.CD0 + K*(CL-AC.CLmd)^2 );
+%u0 = u0*rho(2)*0.5*AC.Sw*x0(1)^2;
 
 A = zeros(3);
-A(1,1) = -rho(2)*x0(1)*AC.Sw*(AC.CD0 + K*(CL - AC.CLmd)^2)/AC.m;% dfVa/dVa
+A(1,1) = -rho(2)*x0(1)*AC.Sw*(AC.CD0 + K*(CL - AC.CLmd)^2)/AC.m; % dfVa/dVa
 A(1,2) = -g*cos(x0(2)); % dfVa/dga
 A(2,1) = rho(2)*AC.Sw*CL/(2*AC.m) + g/(x0(1)^2)*cos(x0(2)); % dfga/dVa
 A(2,2) = g/x0(1) * sin(x0(2)); % dfga/dga

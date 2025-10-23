@@ -9,11 +9,13 @@ dxdt = zeros(3,1);
 [~,u] = IptFor(t);
 
 L = q*AC.Sw*u(1);
-D = q*AC.Sw*( AC.CD0 + K*(u(1) - AC.CLmd)^2 );
+T = u(2);
+%T = q*AC.Sw*u(2);
+%CL = u(1)/(q*AC.Sw);
+D = q*AC.Sw*( AC.CD0 + K*( u(1) - AC.CLmd)^2 );
 
-dxdt(1) = ( u(2) - D - AC.m*g*sin(x(2)) )/AC.m;
-dxdt(2) = ( L - AC.m*g*cos(x(2)) )/(AC.m * x(1));
+dxdt(1) = ( T - D - AC.m*g*sin(x(2)) )/AC.m;
+dxdt(2) = ( L - AC.m*g*cos( x(2)) )/(AC.m * x(1));
 dxdt(3) = x(1)*sin(x(2));
 
 end
-
