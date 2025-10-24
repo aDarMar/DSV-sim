@@ -24,7 +24,7 @@ B(1,1) = -rho(2)*x0(1)^2*AC.Sw*K*(CL - AC.CLmd)/AC.m; % dfVa/dCL
 B(1,2) = 1/AC.m; % dfVa/dT
 B(2,1) = rho(2)*x0(1)*AC.Sw/(2*AC.m); % dfGa/dCL
 
-C = zeros(3,4);
+C = zeros(4,3);
 M = x0(1)/a(2); MMS = (1+0.5*(gm-1)*M^2)^(1/(gm-1));
 C(1,1) = a(1)/a(2) * p(2)/p(1) * M*MMS*( p(2)/p(1)*( MMS^gm - 1 ) + 1 )^(-1/gm);
 C(1,1) = C(1,1)/ sqrt( 2/(gm-1)*( ( p(2)/p(1)*( MMS^gm - 1 ) + 1 )^(1-1/gm) -1 ) );% dgVIAS/dVa

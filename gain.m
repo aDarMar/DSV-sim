@@ -61,7 +61,7 @@ subplot(2,1,2); plot(...%tnl,0.5*rho.*xnl(:,1).^2.*out(1,:),...%
 %subplot(3,1,3); plot(t,xl(:,3)); title()
 
 %% Controllers
-DEBUG = false;
+DEBUG = true;
 if DEBUG
     % Debug B767 30000ft
     A = zeros(3,3); B =zeros(3,2); C = zeros(4,3);
@@ -79,8 +79,8 @@ Acl = Ai - Bi*K*Ci;
 nKs = 310; Ks = linspace(0,5e-2,nKs);
 % Home-Made
 
-iout = 3; % 1 - VIAS 3 - h
-iFor = 1; % 1,3 - CL 2,4 - T
+iout = 3; % 1 - VIAS 3 - h 4 - h dot
+iFor = 3; % 1,3 - CL 2,4 - T
 iForV = 1:4; At ={"CL Prop","T prop","CL int","T int"};
 iOutV = [1,3]; Bt = {"VIAS Feedback","h feedback"};
 
@@ -111,8 +111,10 @@ ax = subplot(1,1,1,"Parent",fig); hold(ax,'on');
 for i = 1:length(lams(:,1))
     plot( ax,real(lams(i,:)),imag(lams(i,:)),'k' )
 end
-% Trasformazione in SISO
 
+% Trasformazione in SISO
+iout = 4; % 1 - VIAS 3 - h
+iFor = 2; % 1,3 - CL 2,4 - T
 CiSISO = Ci(iout,:); DiSISO = zeros(1,1);
 BiSISO = Bi(:,iFor);
 lonsys = ss(Ai,BiSISO,CiSISO,DiSISO);
@@ -125,3 +127,4 @@ rl = rlocusplot(lonsys);
 
 %plot(real(r),imag(r))
 
+%% Design dei Guadagni dei Controllori
