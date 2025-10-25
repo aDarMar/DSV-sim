@@ -28,7 +28,7 @@ switch  chs
     case 2
         du = zeros(4,1); % numero di output y
         if t > 5
-            du(4) = 1000/60;
+            du(4) = 1000;
         end
         u = du;
     case 3
