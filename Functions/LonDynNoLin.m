@@ -7,7 +7,7 @@ q = 0.5*rho*x(1)^2;
 K = 1/(pi*AC.ARw*AC.e);
 dxdt = zeros(3,1);
 %[~,u] = IptFor(t);
-
+%uct = LongDynNL_cont; % TODO FINIRE E TOGLIERE COME INPUT
 L = q*AC.Sw*uct(1);
 T = uct(2);
 %T = q*AC.Sw*u(2);

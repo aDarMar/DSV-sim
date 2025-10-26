@@ -1,6 +1,34 @@
+main()
+
+function main()
 close all; clear; clc;
 
 addpath("Functions\")
+%% Test dT from ode45
+t0 = 0; Mm = zeros(4); Mm(1,1) = 1; Mm(2,2) = 1;
+%options = odeset(Mass=Mm,MassSingular="yes"); options.MStateDependence = "none";
+    function st = storefun(x)
+        st = @store;
+        function stored = store()
+            stored = x;
+        end
+    end
+
+    sst = storefun(5);
+    sst()*2
+    [t,y] = ode15s(@(t,x)vdp1(t,x),[t0 20],[2; 0; t0; t0]);%,options);
+    %[t2,y2] = ode15s()
+    plot(t,y(:,1),'-o',t,y(:,2),'-o')
+    title('Solution of van der Pol Equation (\mu = 1) with ODE45');
+    xlabel('Time t');
+    ylabel('Solution y');
+    legend('y_1','y_2')
+
+    function dydt = vdp1(t,x)
+        out = sst();
+        sst = storefun(t);
+        dydt = [x(2); (1-x(1)^2)*x(2)-x(1);0;0];
+    end
 
 %% Test Building Linear System from AC
 AC.m = 15649; AC.Sw = 56.57; AC.CD0 = 0.03; AC.CLmd = 0.2; AC.bw = 24.6;
@@ -51,3 +79,4 @@ K = zeros(2,2); K(1,2) = 2.7e-5;
 Ai = A - B*K*C; lam = eig(Ai);
 K = zeros(2,2); K(1,1) = -1.5;
 Ai = Ai - B*K*C; lam = eig(Ai);
+end

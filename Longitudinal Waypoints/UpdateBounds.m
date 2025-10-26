@@ -6,11 +6,10 @@ function bounds = UpdateBounds(x_way)
 %   OUTPUT
 %   - bounds: [Vbound,hbound,V/g]
 
-%y_way = LongDynNoLin_Out(x_way);
-bounds = nan(3,1);
-bounds(1) = IAS2TAS(5.1444,x_way(3));
-bounds(3) = - x_way(1)/9.81;        % Va/g @x_way
-bounds(2) = - bounds(3) * bounds(1); % dh
+    bounds = nan(2,1);
+    
+    bounds(1) = 5.1444; % 10 kts IAS
+    bounds(2) = x_way(1)/9.81 * IAS2TAS(5.1444,x_way(3)); % (Va/g)*dV(TAS)
 
 end
 
