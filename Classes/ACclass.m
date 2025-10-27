@@ -6,13 +6,29 @@ classdef ACclass
         Property1
         CD0
         K
+        CLcdm
+        CLmax
+        polar
     end
     
     methods
-        function obj = ACclass(inputArg1,inputArg2)
+        function obj = ACclass(data_name)
             %ACCLASS Construct an instance of this class
             %   Detailed explanation goes here
-            obj.Property1 = inputArg1 + inputArg2;
+            %obj.Property1 = inputArg1 + inputArg2;
+            
+            % Definition of Interpolating Functions
+            load(data_name,'aero_synt')           % TODO: includere anche condizioni T/O e Land
+            obj.CD0 = scatteredInterpolant(aero_synt(:,1),...           % CD0 interpolation
+                aero_synt(:,2),aero_synt(:,3) );
+            obj.K = scatteredInterpolant(aero_synt(:,1),...             % CL@CDmin interpolation
+                aero_synt(:,2),aero_synt(:,4) );
+            obj.CLcdm = scatteredInterpolant(aero_synt(:,1),...         % CL@CDmin interpolation
+                aero_synt(:,2),aero_synt(:,5) );
+            obj.CLmax = scatteredInterpolant(aero_synt(:,1),...         % CLmax interpolation
+                        aero_synt(:,2),aero_synt(:,8) );  
+                    
+            obj.polar =@(M,Re,CL) obj.CD0(M,Re) + obj.K(M,Re)*( CL(:) - obj.CLcdm(M,Re) ).^2;
         end
         
         function outputArg = method1(obj,inputArg)
@@ -61,11 +77,11 @@ classdef ACclass
             end
         end
 
-        function [CL,CD] = Aerodynamic_Mod(obj,flag,h,inp)
+        function [CL,CD] = Aerodynamic_Mod(obj,flag,h,M,inp)
         %AERODYNAMIC_MOD Function that models the aerodynamic characteristics of
         %the aircraft
-        %   L = Aerodynamic_Mod("CL",h,inp): checks if the required CL 
-        %       passed with Treq is actually available at the given altitude h.
+        %   L = Aerodynamic_Mod("t",h,inp): checks if the required CL 
+        %       passed with inp is actually available at the given altitude h.
         %       If that is the case, the function returns T, otherwise it returns 
         %       the maximum available lift at the given altitude
         %       
@@ -74,19 +90,30 @@ classdef ACclass
         %           data for a given combination of alpha and altitude
         
         % TODO - FARE MODELLO AERODINAMICO per ora i numeri sono temporanei
-            CLmax = 1.8; % TEMPORANEOOO
-            switch flag
-                case "CL"
-                    CL = inp;
-                    if inp > CLmax
-                        CL = CLmax;
-                    end
-                    CD = obj.CD0 + obj.K*CL^2;
+        
+            Re = obj.ReCalc(h,M);       % Flight Reynolds Number
             
+            %CLmax = 1.8; % TEMPORANEOOO
+            % [M,Re,CD0,K,CL@min(Cd),CLa,CL0,CLmax,AoA@CLmax]
+            switch flag
+                case "t"
+                    CLm = obj.CLmax(M,Re);                                      
+                    CL = inp(:);
+                    if any( inp > CLm )
+                        CL(inp > CLm) = CLm;
+                    end
+                    obj.polarcalc(CL)
+                    CD = obj.polar(M,Re,CL);
             end
         end
-
-
+        
+        function RE = ReCalc(~,h,M)
+            %RECALC: calculates Reynolds Numer at a given Mach and altitude.
+            [T, a, ~, rho] = atmosisa(h);
+            mu = 1.458e-6 * T^(3/2)/(T+110.4); % Sutherland Law used for retrocompatibility with older matlab versions
+            V = M*a; RE = V*cref*rho/mu;
+        end
+        
     end
 end
 
