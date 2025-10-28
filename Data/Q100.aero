@@ -1,0 +1,14 @@
+% DHV-8/100 Input File
+Q100 				% Name
+aero_synt_database	% Aerodynamic Model Input File
+MASSES
+15740				% MTOM [kg]
+15649				% TAKE OFF MASS [kg]
+15377				% MAX LANDING WEIGHT [Kg]
+14061				% MZF [kg]
+GEOMETRY
+WING
+50					% Wing Surface [m^2]
+10					% Wing SPan [m]
+2					% Reference Chord [m]
+ENDDATA

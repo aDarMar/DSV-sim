@@ -212,7 +212,7 @@ classdef ACclass
             C(1,1) = C(1,1)/0.51444; % VIAS in kts
             C(2,1) = 1/a(2); % dgM/dVa
             C(3,3) = 1/0.305;  % dgh/dh in feet
-            C(4,2) = A(3,2)/(60*0.305); % dghdot/dga fpm
+            C(4,2) = A(3,2)*60/0.305; % dghdot/dga fpm
             
         end
 
