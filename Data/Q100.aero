@@ -1,6 +1,6 @@
 % DHV-8/100 Input File
 Q100 				% Name
-aero_synt_database	% Aerodynamic Model Input File
+aero_synt_database_trimmed	% Aerodynamic Model Input File
 MASSES
 15740				% MTOM [kg]
 15649				% TAKE OFF MASS [kg]
