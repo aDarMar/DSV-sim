@@ -1,5 +1,54 @@
+main()
+
+function main()
 close all; clear; clc;
 
+addpath("Functions\")
+%% Test dT from ode45
+t0 = 0; Mm = zeros(4); Mm(1,1) = 1; Mm(2,2) = 1;
+%options = odeset(Mass=Mm,MassSingular="yes"); options.MStateDependence = "none";
+    function st = storefun(x)
+        st = @store;
+        function stored = store()
+            stored = x;
+        end
+    end
+
+    sst = storefun(5);
+    sst()*2
+    [t,y] = ode15s(@(t,x)vdp1(t,x),[t0 20],[2; 0; t0; t0]);%,options);
+    %[t2,y2] = ode15s()
+    plot(t,y(:,1),'-o',t,y(:,2),'-o')
+    title('Solution of van der Pol Equation (\mu = 1) with ODE45');
+    xlabel('Time t');
+    ylabel('Solution y');
+    legend('y_1','y_2')
+
+    function dydt = vdp1(t,x)
+        out = sst();
+        sst = storefun(t);
+        dydt = [x(2); (1-x(1)^2)*x(2)-x(1);0;0];
+    end
+
+%% Test Building Linear System from AC
+AC.m = 15649; AC.Sw = 56.57; AC.CD0 = 0.03; AC.CLmd = 0.2; AC.bw = 24.6;
+AC.e = 0.85; AC.ARw = AC.bw^2/AC.Sw;
+x0 = [120,0,500];      % Va [m/s] ga [rad] h [m]
+%dx = [2.5;0;0]*0;
+
+% Linearized Longitudinal Model
+[A,B,C,u0] = LongLinSys(x0,AC);
+
+%% Test Output Functions
+scs = [0:0.1:1];dx = x0(:).*scs;%[10;pi/180;10];
+y0 = C*x0(:); y_lin = C*dx;
+y_nl = LongDynNoLin_Out(x0(:)+dx);
+err = abs( 1 - (y0+y_lin)./y_nl ); %err = err(~isnan(err));
+if norm(err(~isnan(err)),'inf') > 1e-1
+    warning('Linear and Non Linear Output mismatch')
+end
+figure()
+loglog(scs,err)
 %% 1
 A = zeros(4,4); B = zeros(4,2); C = zeros(1,4);
 A(1,1) = -7.2e-3; A(1,2) = -32.2; A(1,4) = -2.74;
@@ -30,3 +79,4 @@ K = zeros(2,2); K(1,2) = 2.7e-5;
 Ai = A - B*K*C; lam = eig(Ai);
 K = zeros(2,2); K(1,1) = -1.5;
 Ai = Ai - B*K*C; lam = eig(Ai);
+end
