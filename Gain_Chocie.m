@@ -111,8 +111,7 @@ function main()
     wn = [2;0.05;0.4]; zita = [0.9;0.7;0.7]; p = [0,nan;-0.05,nan;-0.1,-0.2]; 
     CTR = {'CLcHd','CLcV','CLTcVh'}; 
     TIT = {'CL control of hdot','CL control of V','CL and T control of V,hdot'};
-    Kp = zeros(2,4); Kb = Kp; Ki = Kp;
-    nctrnd = length(wn);
+    nctrnd = length(wn); Kp = zeros(2,4,nctrnd); Kb = Kp; Ki = Kp;
     for iTs = 1:nctrnd
         axs(iTs) = subplot(1,3,iTs,'Parent',fig_rl); hold(axs(iTs),'on');
         if CTR{iTs} == "CLTcVh"
@@ -124,9 +123,9 @@ function main()
         end
         lam_c (:,iTs) = lam; [temp1,temp2] = OmZitaCalc(lam_c(:,iTs));
         plot_conds( x0,xref,Kbt,Kit,Kpt,axs(iTs),TIT{iTs} );
-        Kp = Kp + Kpt; Ki = Ki + Kit; Kb = Kb + Kbt;
+        Kp(:,:,iTs) = Kpt; Ki(:,:,iTs) = Kit; Kb(:,:,iTs) = Kbt;
     end
-
+    save('Data\contr_gains_clean.mat','Kp','Kb','Ki');
     function [lams,fig,ax,lin] = plot_conds(xtest,xref,Kb,Ki,Kp,ax,tit)
 
         lams = AC.CheckCont(xtest,Kp,Ki,Kb);

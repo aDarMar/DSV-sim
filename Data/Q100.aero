@@ -1,6 +1,7 @@
 % DHV-8/100 Input File
 Q100 				% Name
 aero_synt_database_trimmed	% Aerodynamic Model Input File
+contr_gains_clean.mat		% Controller gains 
 MASSES
 15740				% MTOM [kg]
 15649				% TAKE OFF MASS [kg]

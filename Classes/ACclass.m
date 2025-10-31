@@ -21,6 +21,11 @@ classdef ACclass
         CLcdm
         CLmax
         polar
+
+        Kp
+        Kb
+        Ki
+
     end
     
     methods
@@ -36,7 +41,7 @@ classdef ACclass
             %obj.Property1 = inputArg1 + inputArg2;
             
             % Masses
-            [obj,data_name] = obj.read_input(file_name);
+            [obj,data_name,gain_file] = obj.read_input(file_name);
             obj.ARw = obj.bw^2/obj.Sw;
             % Definition of Interpolating Functions
             load(data_name,'aero_synt')           % TODO: includere anche condizioni T/O e Land
@@ -50,9 +55,17 @@ classdef ACclass
                         aero_synt(:,2),aero_synt(:,8) );  
                     
             obj.polar =@(M,Re,CL) obj.CD0(M,Re) + obj.K(M,Re)*( CL(:) - obj.CLcdm(M,Re) ).^2;
+            % Controllers Gains
+            %obj.Kp(:,:,1) = Kp; obj.Kb(:,:,1) = Kb; obj.Ki(:,:,1) = Ki;
+            try
+                [obj.Kp,obj.Kb,obj.Ki] = obj.gain_assign(gain_file);
+            catch
+                warning('No gain file found')
+                obj.Kp(:,:,1) = nan(2,4); obj.Kb(:,:,1) = nan(2,4); obj.Ki(:,:,1) = nan(2,4);
+            end
         end
         
-        function [obj,data_name] = read_input(obj,dataFileName)
+        function [obj,data_name,gain_name] = read_input(obj,dataFileName)
             %READ_INPUT: Reads aircraft data from the txt file
             %   Detailed explanation goes here
             function test_block(f_id,test)
@@ -71,6 +84,7 @@ classdef ACclass
                 lin = fgetl(f_id); strtok(lin,{'%'}) % Skips firt line
                 lin = fgetl(f_id); lin = strtok(lin,sprintf(' \t%')); obj.Name = lin; % Name
                 lin = fgetl(f_id); lin = strtok(lin,sprintf(' \t%')); data_name  = lin;
+                lin = fgetl(f_id); lin = strtok(lin,sprintf(' \t%')); gain_name  = lin;
                 % Masses
                 test_block(f_id,'MASSES');
                 lin = fscanf(f_id,'%f '); obj.MTOM = lin; fgetl(f_id);
@@ -230,6 +244,19 @@ classdef ACclass
 
         end
 
+        end
+
+        function [Kb,Kp,Ki] = gain_assign(obj,name)
+            load(name,'Kb','Kp','Ki');
+            %Kb = GNS.Kb;
+            % switch flg
+            %     case 'CLcHd'
+            %         obj.Kp(:,:,1) = Kp; obj.Kb(:,:,1) = Kb; obj.Ki(:,:,1) = Ki;
+            %     case 'CLcV'
+            %         obj.Kp(:,:,2) = Kp; obj.Kb(:,:,2) = Kb; obj.Ki(:,:,2) = Ki;
+            %     case 'CLTcVh'
+            %         obj.Kp(:,:,3) = Kp; obj.Kb(:,:,3) = Kb; obj.Ki(:,:,3) = Ki;
+            % end
         end
     end
 end
