@@ -106,13 +106,15 @@ function main()
     
     %% Gain Definitions for Reference Condition
     
-    lam_c = nan(5,3);
-
+    lam_c = nan(5,3); % Roots of controlled system in ref cond
+    fig_rl = figure('Name','Eigenvalues out of reference condition');
     wn = [2;0.05;0.4]; zita = [0.9;0.7;0.7]; p = [0,nan;-0.05,nan;-0.1,-0.2]; 
-    CTR = {'CLcHd','CLcV','CLTcVh'};
+    CTR = {'CLcHd','CLcV','CLTcVh'}; 
+    TIT = {'CL control of hdot','CL control of V','CL and T control of V,hdot'};
     Kp = zeros(2,4); Kb = Kp; Ki = Kp;
     nctrnd = length(wn);
     for iTs = 1:nctrnd
+        axs(iTs) = subplot(1,3,iTs,'Parent',fig_rl); hold(axs(iTs),'on');
         if CTR{iTs} == "CLTcVh"
             [Kpt,Kit,Kbt,lam] = ...
                 Gains( wn(iTs),zita(iTs),Ai,Bi,Ci,D,CTR{iTs},p(iTs,1:2) );
@@ -121,38 +123,18 @@ function main()
                 Gains( wn(iTs),zita(iTs),Ai,Bi,Ci,D,CTR{iTs},p(iTs) );
         end
         lam_c (:,iTs) = lam; [temp1,temp2] = OmZitaCalc(lam_c(:,iTs));
-        plot_conds(x0,xref,Kbt,Kit,Kpt);
+        plot_conds( x0,xref,Kbt,Kit,Kpt,axs(iTs),TIT{iTs} );
         Kp = Kp + Kpt; Ki = Ki + Kit; Kb = Kb + Kbt;
     end
 
-    % % % CL control of hdot
-    % % 
-    % % % CL control of V
-    % % 
-    % % [Kpt,Kit,Kbt,lam] = Gains(0.05,0.7,Ai,Bi,Ci,D,,-0.05);
-    % % 
-    % % Kp = Kp+Kpt; Ki = Ki+Kit; Kb = Kb+Kbt;
-    % % 
-    % % lams = AC.CheckCont(x0,Kp2,Ki2,Kb2);
-    % % lamr = AC.CheckCont(xref,Kp2,Ki2,Kb2);
-    % % fig = figure();
-    % % ax4 = axes('Parent',fig);
-    % % plot(ax4,real(lams),imag(lams),'o','MarkerSize', 5, ...          % dimensione del marker
-    % %     'MarkerEdgeColor', [0 0 0], ...% colore bordo (nero)
-    % %     'MarkerFaceColor', [0.5 0 0], ...% colore interno (rosso)
-    % %     'LineWidth', 0.5); hold(ax4,'on');
-    % % plot(ax4,real(lamr),imag(lamr),'diamond','MarkerSize', 8, ...          % dimensione del marker
-    % %     'MarkerEdgeColor', [0 0 0], ...% colore bordo (nero)
-    % %     'MarkerFaceColor', [0 0.5 0], ...% colore interno (rosso)
-    % %     'LineWidth', 0.5);
-
-    function [lams,fig,ax,lin] = plot_conds(xtest,xref,Kb,Ki,Kp,ax)
+    function [lams,fig,ax,lin] = plot_conds(xtest,xref,Kb,Ki,Kp,ax,tit)
 
         lams = AC.CheckCont(xtest,Kp,Ki,Kb);
         lamr = AC.CheckCont(xref,Kp,Ki,Kb);
         if nargin < 6
             fig = figure();
             ax = axes('Parent',fig); hold(ax,'on');
+            tit = 'Roots at different flight conditions';
         end
         plot(ax,real(lams),imag(lams),'o','MarkerSize', 5, ...          % dimensione del marker
             'MarkerEdgeColor', [0 0 0], ...% colore bordo (nero)
@@ -162,7 +144,8 @@ function main()
             'MarkerEdgeColor', [0 0 0], ...% colore bordo (nero)
             'MarkerFaceColor', [0 0.5 0], ...% colore interno (rosso)
             'LineWidth', 0.5);
-        %title(ax,'')
+        grid(ax,'minor');
+        title(ax,tit);
     end
 
 end
