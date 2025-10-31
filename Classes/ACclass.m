@@ -215,7 +215,22 @@ classdef ACclass
             C(4,2) = A(3,2)*60/0.305; % dghdot/dga fpm
             
         end
+        
+        function lam = CheckCont(obj,xtest,Kp,Ki,Kb)
+        %CHECKCONT: Function that calculates the roots of the
+        %characteristic equation for a given gain matrix on all conditions
+        %given by xref
 
+        Kg = [Kp+Kb;Ki]; lam = nan(length(xtest(:,1)),5); % Works only with 5 state variables
+        for i = 1:length(xtest(:,1))
+            [A,B,C,D] = obj.LongLinSys( xtest(i,1:3),xtest(i,4) );
+            Ai = [A,B;zeros(2,5)]; Bi = [B,zeros(3,2);zeros(2,2),eye(2)];
+            Ci = [C,zeros(4,2)];
+            lam(i,:) = eig(Ai - Bi*Kg*Ci)';
+
+        end
+
+        end
     end
 end
 

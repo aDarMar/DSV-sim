@@ -22,15 +22,15 @@ else
     hs = vls(:,2)*(4500); % h from S/L to 25000ft
     Vs = vls(:,3)*(Vmax*0.8 - Vstall) + Vstall; % VTAS from VStall to Vmax@h max
     
-    x = [Vs(:),ms(:)*0,hs(:),ms(:),ms(:)*nan,ms(:)*nan];
+    x = [Vs(:),ms(:)*0,hs(:),ms(:),ms(:)*nan,ms(:)*nan,ms(:)*nan];
     % From 4500 m to hmax MTO * 0.995 <-> MLND/0.99
     vls = lhsdesign(200,3);
     ms = vls(:,1)*(AC.MTO*0.99 - AC.MLND/0.99) + AC.MLND/0.99;
     hs = vls(:,2)*(hmax-4500) + 4500; % h from S/L to 25000ft
     Vs = vls(:,3)*(Vmax - Vstall*1.5) + Vstall*1.5; % VTAS from VStall to Vmax@h max
     
-    x = [ x;[Vs(:),ms(:)*0,hs(:),ms(:),ms(:)*nan,ms(:)*nan] ];
-    %   [Vs, nan, hs, ms, m/rho, CL ]
+    x = [ x;[Vs(:),ms(:)*0,hs(:),ms(:),ms(:)*nan,ms(:)*nan,ms(:)*nan] ];
+    %   [Vs, nan, hs, ms, m/rho, CL, Emax ]
     %    1    2    3   4   5     6
 end
 
@@ -52,6 +52,7 @@ for i = 1:length( x(:,1) )
     T = AC.Thrust_Law( 1,x(i,3),'ipt' );
     flg =  ...
         CD < T/(0.5*rho*x(i,1)^2*AC.Sw) && flg;                             % Treq < Tmax
+    x(i,7) = x(i,6)/CD; 
     if flg                                                                  % Iif flg = true the chosen V h m combination if an equilibrium one
        %CLs =  -0.1:0.1:CLmax; CLs = CLs(:);
        %CDs = AC.polar( M,Re,CLs ); CDs = CDs(:);
@@ -60,7 +61,9 @@ for i = 1:length( x(:,1) )
 %             rif.V = x(i,1);
 %             rif.iEmax = i;
 %        end
-       itemp(j) = i;
+    %CLs = 0.1:0.1:CLmax; CLs = CLs(:);
+      
+    itemp(j) = i;
        j = j + 1;
     end
 end
