@@ -9,14 +9,16 @@ function [u,u_out,dxdt] = LongControlOutSimple(t,x,y_way,x_add,AC)
     % u_out(1) = ZoneIdf(err,bounds);     % Identifies the zone in which the aircraft is                 Flag vector [ slow,fast,Low,High,lowenergy]
     u = zeros(2,1);                     % Force Vector [CL,T]
     % DEBUG 
-    TEST = 2;
+    TEST = 7;                   % 2 - CL control of hfpt 3/6 - CL control of V 7 - T and CL control of hdot V
     switch TEST
         case 7
         % Steady Level Flight
             [u(1),dxdt(1),u_out(4),u_out(3) ] = ...
                CLcontrol('h',t,x,y,y_way,err,x_add,AC,nan);     % CL control of hdot
-            [u(2),dxdt(2),u_out(2) ] = Tcontrol(x,y,y_way); % Thrust control of IAS  
+            [u(2),dxdt(2),u_out(2) ] = Tcontrol(AC,x,y,y_way); % Thrust control of IAS  
         case 2
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+            % TESTED
         % Accelerating Flight
             [u(1),dxdt(1),u_out(4),u_out(3) ] = ...         % CL control of hdot
                 CLcontrol('h',t,x,y,y_way,err,x_add,AC,nan);         
@@ -41,15 +43,18 @@ function [u,u_out,dxdt] = LongControlOutSimple(t,x,y_way,x_add,AC)
             dxdt(2) = 0;
             u(2) = AC.Thrust_Law(1,x(3),'ipt');                % Throttle set to full VEDER SE SOSTITUIRE CON mxC
         case 3
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % Descending
-            [u(1),dxdt(1),u_out(4),u_out(3) ] = ...         % CL control of V
+            [u(1),dxdt(1),u_out(4),u_out(2) ] = ...         % CL control of V
                 CLcontrol('V',t,x,y,y_way,err,x_add,AC);
             dxdt(2) = 0;
             u(2) = AC.Thrust_Law(1,x(3),'idl');        
         case 6
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % Climbing
-            [u(1),dxdt(1),u_out(4),u_out(3) ] = ...         % CL control of V
+            [u(1),dxdt(1),u_out(4),u_out(2) ] = ...         % CL control of V
                 CLcontrol('V',t,x,y,y_way,err,x_add,AC);
+            dxdt(2) = 0;
             u(2) = AC.Thrust_Law(1,x(3),'ipt');                % SOLITA COSA DI TMAX
         case 1
         % Climbing & Accelerating
@@ -57,7 +62,7 @@ function [u,u_out,dxdt] = LongControlOutSimple(t,x,y_way,x_add,AC)
             [u(1),dxdt(1),u_out(4),u_out(3) ] = ...         % CL control of hdot
                 CLcontrol('hc',t,x,y,y_way,err,x_add,AC,nan,ER1); 
             dxdt(2) = 0;
-            u(2) = Thrust_Law(1,x(3),'idl');
+            u(2) = AC.Thrust_Law(1,x(3),'idl');
         case 4
         % Descending & Decelerating
             [u(1),dxdt(1),u_out(4),u_out(3) ] = ...         % CL control of hdot
@@ -158,22 +163,23 @@ function [uCL,dxdt,Kh,comm] = CLcontrol...
             dxdt = Ki(1,:)*[0;0;0;comm-y(4)];
             uCL = Kp(1,:)*( [0;0;0;comm-y(4)] ) - Kb(1,:)*[0;0;0;y(4)] + x(4);
         case 'V'
-            comm = V_des(t,y,y_way);
+            % comm = V_des(t,y,y_way);
             Kh = nan;
-            dxdt = Ki(1,:)*[Vc-y(1);0;0;0];
-            uCL = Kp(1,:)*( [comm-y(1);0;0;0] ) - Kb(1,:)*[y(1);0;0;0] + x(4);
+            dxdt = AC.Ki(1,:,2)*[y_way(1)-y(1);0;0;0];
+            uCL = AC.Kp(1,:,2)*( [y_way(1)-y(1);0;0;0] ) - AC.Kb(1,:,2)*[y(1);0;0;0] + x(5); % MODIFICA OVUNQUEEEE x(4) -> x(5)
+            comm = y_way(1);
     end
     uCL = AC.Aerodynamic_Mod('t',x(3),y(2),uCL); % Checks if the aircraft can attain the required CL
 end
 
-function [uT,dxdt,Vc] = Tcontrol(x,y,y_way)
+function [uT,dxdt,Vc] = Tcontrol(AC,x,y,y_way)
 % T control of IAS
 % UNTESTED
-    [Kp,Ki,Kb] = Control_Gains(x);                                  % Controller Gains for specific flight condition
-    Vc = V_des(t,y,y_way);
-    uT = Kp(2,:)*[Vc-y(1);0;0;0] - Kb(2,:)*[y(1);0;0;0] + x(5);     % Calculates the required thrust to attain the Vc
-    dxdt = Ki(2,:)*[Vc-y(1);0;0;0];
-    uT = Thrust_Law(uT,x(3));                                       % Checks if teh engien can provide the required thrust
+    %[Kp,Ki,Kb] = Control_Gains(x);                                             % Controller Gains for specific flight condition
+    Vc = y_way(1);
+    uT = AC.Kp(2,:,3)*[y_way(1)-y(1);0;0;0] - AC.Kb(2,:,3)*[y(1);0;0;0] + x(6);       % Calculates the required thrust to attain the Vc
+    dxdt = AC.Ki(2,:,3)*[Vc-y(1);0;0;0];
+    uT = AC.Thrust_Law(uT,x(3));                                                   % Checks if teh engien can provide the required thrust
 end
 
 function [hdotc,Kh] = hdot_des(y,y_way,err,x_add,Kh)

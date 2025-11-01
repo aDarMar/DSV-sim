@@ -8,7 +8,7 @@ addpath('.\Data')
 main();
 
 function main()
-    DEBUG = false;
+    DEBUG = false; SavFLG = false;
     %% Aircraft Definition
     if DEBUG
         % Esempio DC9
@@ -96,9 +96,9 @@ function main()
     end
     [A,B,C,D] = AC.LongLinSys(xref(1:3),xref(4) );
     lam = eig(A);
-    plot(ax2,real(lam),imag(lam),'o','MarkerSize', 8, ...          % dimensione del marker
-        'MarkerEdgeColor', [0 0 0], ...% colore bordo (nero)
-        'MarkerFaceColor', [1 0 0], ...% colore interno (rosso)
+    plot(ax2,real(lam),imag(lam),'o','MarkerSize', 8, ...                       % dimensione del marker
+        'MarkerEdgeColor', [0 0 0], ...                                         % colore bordo (nero)
+        'MarkerFaceColor', [1 0 0], ...                                         % colore interno (rosso)
         'LineWidth', 1);
     % System with Integral Control
     Ai = [A,B;zeros(2,5)]; Bi = [B,zeros(3,2);zeros(2,2),eye(2)];
@@ -108,16 +108,18 @@ function main()
     
     lam_c = nan(5,3); % Roots of controlled system in ref cond
     fig_rl = figure('Name','Eigenvalues out of reference condition');
-    wn = [2;0.05;0.4]; zita = [0.9;0.7;0.7]; p = [0,nan;-0.05,nan;-0.1,-0.2]; 
+    wn = [2;0.05;0.4]; zita = [0.9;0.7;0.7]; p = [0,nan;-0.05,nan;-0.1,-0.2];   % Sought modal caracteristics
     CTR = {'CLcHd','CLcV','CLTcVh'}; 
     TIT = {'CL control of hdot','CL control of V','CL and T control of V,hdot'};
-    nctrnd = length(wn); Kp = zeros(2,4,nctrnd); Kb = Kp; Ki = Kp;
+    nctrnd = length(wn); Kp = zeros(2,4,nctrnd); Kb = Kp; Ki = Kp;              % Initializing Gain matrices
     for iTs = 1:nctrnd
         axs(iTs) = subplot(1,3,iTs,'Parent',fig_rl); hold(axs(iTs),'on');
         if CTR{iTs} == "CLTcVh"
+            % In this case there are two poles to be defined
             [Kpt,Kit,Kbt,lam] = ...
-                Gains( wn(iTs),zita(iTs),Ai,Bi,Ci,D,CTR{iTs},p(iTs,1:2) );
+                Gains( wn(iTs),zita(iTs),Ai,Bi,Ci,D,CTR{iTs},p(iTs,1:2) );      % p has dimension 2 because of the two poles
         else
+            % In these cases there is only one pole
             [Kpt,Kit,Kbt,lam] = ...
                 Gains( wn(iTs),zita(iTs),Ai,Bi,Ci,D,CTR{iTs},p(iTs) );
         end
@@ -125,8 +127,10 @@ function main()
         plot_conds( x0,xref,Kbt,Kit,Kpt,axs(iTs),TIT{iTs} );
         Kp(:,:,iTs) = Kpt; Ki(:,:,iTs) = Kit; Kb(:,:,iTs) = Kbt;
     end
-    save('Data\test_conditions.mat','xref','x0');
-    save('Data\contr_gains_clean.mat','Kp','Kb','Ki');
+    if SavFLG
+        save('Data\test_conditions.mat','xref','x0');
+        save('Data\contr_gains_clean.mat','Kp','Kb','Ki');
+    end
     function [lams,fig,ax,lin] = plot_conds(xtest,xref,Kb,Ki,Kp,ax,tit)
 
         lams = AC.CheckCont(xtest,Kp,Ki,Kb);
@@ -136,11 +140,11 @@ function main()
             ax = axes('Parent',fig); hold(ax,'on');
             tit = 'Roots at different flight conditions';
         end
-        plot(ax,real(lams),imag(lams),'o','MarkerSize', 5, ...          % dimensione del marker
+        plot(ax,real(lams),imag(lams),'o','MarkerSize', 5, ...                  % dimensione del marker
             'MarkerEdgeColor', [0 0 0], ...% colore bordo (nero)
             'MarkerFaceColor', [0.5 0 0], ...% colore interno (rosso)
             'LineWidth', 0.5);
-        plot(ax,real(lamr),imag(lamr),'diamond','MarkerSize', 8, ...          % dimensione del marker
+        plot(ax,real(lamr),imag(lamr),'diamond','MarkerSize', 8, ...            % dimensione del marker
             'MarkerEdgeColor', [0 0 0], ...% colore bordo (nero)
             'MarkerFaceColor', [0 0.5 0], ...% colore interno (rosso)
             'LineWidth', 0.5);
