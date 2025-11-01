@@ -58,7 +58,7 @@ classdef ACclass
             % Controllers Gains
             %obj.Kp(:,:,1) = Kp; obj.Kb(:,:,1) = Kb; obj.Ki(:,:,1) = Ki;
             try
-                [obj.Kp,obj.Kb,obj.Ki] = obj.gain_assign(gain_file);
+                [obj.Kb,obj.Kp,obj.Ki] = obj.gain_assign(gain_file);
             catch
                 warning('No gain file found')
                 obj.Kp(:,:,1) = nan(2,4); obj.Kb(:,:,1) = nan(2,4); obj.Ki(:,:,1) = nan(2,4);
@@ -124,7 +124,7 @@ classdef ACclass
         
         % TODO - FARE MODELLO MOTORE per ora i numeri sono temporanei
             Tmax = 10000; % N
-            if nargin == 2
+            if nargin == 3
                 T = Treq;
                 if Treq > Tmax
                     T = Tmax;
@@ -169,9 +169,11 @@ classdef ACclass
                 case "t"
                     CLm = obj.CLmax(M,Re);                                      
                     CL = inp(:);
-                    if any( inp > CLm )
-                        CL(inp > CLm) = CLm;
+                    if any( abs(inp) > CLm ) % TEMP: ASSUMIAMO PER ORA CHE CLmax positivo e negativo siano uguali
+                       CL( abs(inp) > CLm) = CLm.*CL( abs(inp) > CLm)...
+                           ./abs( CL(abs(inp) > CLm) ) ;
                     end
+                    
                     CD = obj.polar(M,Re,CL);
             end
         end
