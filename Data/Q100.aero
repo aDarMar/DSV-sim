@@ -9,7 +9,7 @@ MASSES
 14061				% MZF [kg]
 GEOMETRY
 WING
-50					% Wing Surface [m^2]
-10					% Wing SPan [m]
-2					% Reference Chord [m]
+56.57					% Wing Surface [m^2]
+24.6					% Wing SPan [m]
+2.38				% Reference Chord [m]
 ENDDATA

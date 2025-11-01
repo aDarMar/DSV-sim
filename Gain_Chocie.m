@@ -125,6 +125,7 @@ function main()
         plot_conds( x0,xref,Kbt,Kit,Kpt,axs(iTs),TIT{iTs} );
         Kp(:,:,iTs) = Kpt; Ki(:,:,iTs) = Kit; Kb(:,:,iTs) = Kbt;
     end
+    save('Data\test_conditions.mat','xref','x0');
     save('Data\contr_gains_clean.mat','Kp','Kb','Ki');
     function [lams,fig,ax,lin] = plot_conds(xtest,xref,Kb,Ki,Kp,ax,tit)
 

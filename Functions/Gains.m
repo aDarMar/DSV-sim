@@ -7,22 +7,6 @@ function [Kp,Ki,Kb,lam] = Gains(wn,zita,Ai,Bi,Ci,D,CHS,p)
     
     wns = wn^2; zwn = 2*zita*wn;
 
-
-
-    % function  [kp14,ki21,kp14] = itsolv(kp14)
-    %     C2 = - ( Ai(1,1) - Bi(1,2)*Ci(1,1)*x(1) - Bi(2,1)*Ci(4,2)*x(2) );
-    %     C3 = - ( Ai(1,1)*Bi(2,1)*Ci(4,2)*x(2) - ...
-    %         Bi(1,2)*Ci(1,1)*Bi(2,1*Ci(4,2)*x(1)*x(2) - Bi(2,1)*Ci(4,2)*x(3)...
-    %         + Ai(2,1)*Ai(1,2) - Ai(2,1)*Bi(1,1)*Ci(4,2)*x(2) - Bi(1,2)*Ci(1,1)*x(2) );
-    %     C4 = - (- Bi(1,2)*Bi(2,1)*Ci(4,2)*Ci(1,1)*x(2)*x(4) - ...
-    %         Ai(2,1)*Bi(1,1)*Ci(4,2)*x(3) + Bi(2,1)*Ci(4,2)*Ai(1,1)*x(3)-...
-    %         Bi(2,1)*Ci(4,2)*Bi(1,2)*Ci(1,1)*x(1)*x(3) );
-    %     C5 = Ci(1,1)*Bi(1,2)*Bi(2,1)*Ci(4,2)*x(4)*x(3);
-    % 
-    %     CC2 = C2 + Ai(1,1); CC3 = C3 + Ai(2,1)*Ai(1,2); 
-    % 
-    % end
-
 switch CHS
     case 'CLcHd'
         % CL control of hdot
@@ -58,12 +42,6 @@ switch CHS
         C2 = zwn - p(1)-p(2); C3 = wns - zwn*(p(1)+p(2)) + p(1)*p(2);
         C4 = zwn*p(1)*p(2) - wns*(p(1)+p(2)); C5 = wns*p(1)*p(2);
 
-        % CC2 = C2 + Ai(1,1); CC3 = C3 + Ai(2,1)*Ai(1,2); x1 = Bi(1,2)*Ci(1,1);
-        % x2 = Bi(2,1)*Ci(4,2); x8 = Bi(1,2)*Bi(2,1)*Ci(4,2)*Ci(1,1);
-        % x9 = Ai(2,1)*Bi(1,1)*Ci(4,2) - Bi(2,1)*Ci(4,2)*Ai(1,1);
-        % x10 = Bi(2,1)*Ci(4,2)*Bi(1,2)*Ci(1,1); 
-        % x11 = Ci(1,1)*Bi(1,2)*Bi(2,1)*Ci(4,2);
-
         ks = fsolve(@sysol,[1e-5,1e-3,1e-3,1e-3]);
         Kp(2,1) = ks(1); Kp(1,4) = ks(2); Ki(1,4) = ks(3); Ki(2,1) = ks(4);
         rLocusDef(Ai,Bi,Ci,4,1);                                                   % Kp14
@@ -76,8 +54,6 @@ switch CHS
         Kit = zeros(4,4); Kit(4,1) = Ki(2,1); Ain = Ain - Bi*Kit*Ci; 
         lam = eig(Ain);
 end
-
-%
 
     function F = sysol(x)
         % x(1) -> Kp(2,1)
@@ -95,12 +71,5 @@ end
         F(4) = C5-Ci(1,1)*Bi(1,2)*Bi(2,1)*Ci(4,2)*x(4)*x(3);
     end
 
-    % function [] = sysgain()
-    % 
-    %     Ki14 = 0.5*( C4 + sqrt( C4^2 - 4*(x9+x10*CC2/x1 -x2*Kp14)*C5*x8*Kp14/x11 ) )...
-    %         /( x9 + x10*CC2/x1-x2*Kp14);
-    %     Ki12 = C5/x11 * (C4 + )
-    % 
-    % end
 end
 

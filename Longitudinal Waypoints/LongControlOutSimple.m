@@ -1,18 +1,16 @@
-function [u,u_out,dxdt] = LongControlOut(t,x,y_way,x_add,bounds)
-%LongControlOut Summary of this function goes here
+function [u,u_out,dxdt] = LongControlOutSimple(t,x,y_way,x_add,AC)
+%LONGCONTROLOUTSIMPLE Summary of this function goes here
 %   INPUT
+%   - x : [V,ga,h,m]
 %   - bounds: [vbound,hbound,V/g] in SI units
-    KHS = 0.0167; FPMc = ; ER1 = 2.3;% Khdot 1 [1/s] RoD custom 500 fpm ER1 Energy ratio in Reg. 1
-    %x_addN = nan(length(x_add),1);      % CAPIRE se aumentare di dimensioni x_add ad ogni time step o ritornare solo l'ultimo valore
-    y = LongDynNoLin_Out(x(1,3));       % State output
-    %y_way = LongDynNoLin_Out(x_way);   % Reference state output
+    u_out = nan(1,4);                   % Output vector [ID,Vc,hdotc,Kh]
+    y = LongDynNoLin_Out(x(:));       % State output
     err = y_way(:) - y(:);              % Error definition
-    % if norm(err,'inf') < tol            % Waypoint reached
-    %     x(6) = 1;
-    % end
-    u_out(1) = ZoneIdf(err,bounds);          % Identifies the zone in which the aircraft is                 Flag vector [ slow,fast,Low,High,lowenergy]
+    % u_out(1) = ZoneIdf(err,bounds);     % Identifies the zone in which the aircraft is                 Flag vector [ slow,fast,Low,High,lowenergy]
     u = zeros(2,1);                     % Force Vector [CL,T]
-    switch u_out(1)
+    % DEBUG 
+    TEST = 2;
+    switch TEST
         case 7
         % Steady Level Flight
             [u(1),dxdt(1),u_out(4),u_out(3) ] = ...
@@ -67,6 +65,8 @@ function [u,u_out,dxdt] = LongControlOut(t,x,y_way,x_add,bounds)
             dxdt(2) = 0;
             u(2) = Thrust_Law(1,x(3),'idl');
     end
+
+
 end
 
 function ID = ZoneIdf(err,bounds)
@@ -124,12 +124,21 @@ function [uCL,dxdt,Kh,comm] = CLcontrol...
 % CL control of altitude or speed
 % UNTESTED SPECIFICARE CONALT e capire come gestire conalt tra regione 7 e
 % 25
-    [Kp,Ki,Kb] = Control_Gains(x); 
+
     switch flg
         case 'h'
-            [comm,Kh] = hdot_des(y,y_way,err,x_add,Kh); % ADD conalt. Returns the state vector with ONLY x(8) updated (Khdot)
-            dxdt = Ki(1,:)*[0;0;0;comm-y(4)];
-            uCL = Kp(1,:)*( [0;0;0;comm-y(4)] ) - Kb(1,:)*[0;0;0;y(4)] + x(4);
+            %[comm,Kh] = hdot_des(y,y_way,err,x_add,Kh); % ADD conalt. Returns the state vector with ONLY x(8) updated (Khdot)
+            comm = x_add(3); Kh = -1;
+            dxdt = AC.Ki(1,:,1)*[0;0;0;comm-y(4)];
+            uCL = AC.Kp(1,:,1)*( [0;0;0;comm-y(4)] ) - AC.Kb(1,:,1)*[0;0;0;y(4)] + x(5); % MODIFICA OVUNQUEEEE x(4) -> x(5)
+        
+        
+        
+        
+        
+        
+        
+        
         case 'hc' % hdot custom: hdot is the maximum between the value in Kh and the one calculated
             [comm,Kh] = hdot_des(y,y_way,err,x_add,Kh);
             comm = max( comm,abs(hdotcust) ); % hdotc is the maximum between the one calculated and the one given CONTROLLA IL SEGNO FORSE ROD (<0)
@@ -154,7 +163,7 @@ function [uCL,dxdt,Kh,comm] = CLcontrol...
             dxdt = Ki(1,:)*[Vc-y(1);0;0;0];
             uCL = Kp(1,:)*( [comm-y(1);0;0;0] ) - Kb(1,:)*[y(1);0;0;0] + x(4);
     end
-    uCL = AC.Aerodynamic_Mod(x(3),uCL); % Checks if the aircraft can attain the required CL
+    uCL = AC.Aerodynamic_Mod('t',x(3),y(2),uCL); % Checks if the aircraft can attain the required CL
 end
 
 function [uT,dxdt,Vc] = Tcontrol(x,y,y_way)
@@ -192,25 +201,4 @@ function  Vc = V_des(t,y,y_way,x_add)
     Vc = 0.51444*( y_way(1)-y(1) )/abs( y_way(1)-y(1) ) * ( t-x_add(1) ); % PROBLEMA: ODE45 ha il passo adattivo, quindi t va avanti e indietro
 end
 
-% if err(1) < -Vbound
-%     % Aircraft is Fast: Vref - V < -Vbound
-%     flg(2) = true;
-%     if
-% end
-% if err(1) > Vbound
-%     % Aircraft is Slow
-%     flg(1) = true;
-% end
-% if err(3) < -bounds(2)
-%     % Aircraft is High
-%     flg(3) = true;
-% end
-% if err(3) > hboun
-%     % Aircraft is Low
-%     flg(4) = false;
-% end
-% if err(3) > - x_way(1)/g*err(1)
-%     % Aircraft is High Energy
-%     flg(5) = true;
-% end
-% end
+

@@ -172,7 +172,6 @@ classdef ACclass
                     if any( inp > CLm )
                         CL(inp > CLm) = CLm;
                     end
-                    obj.polarcalc(CL)
                     CD = obj.polar(M,Re,CL);
             end
         end
