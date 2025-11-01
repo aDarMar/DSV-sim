@@ -91,7 +91,7 @@ function main()
     
     % output function: it is called by the ode solver only after a
     % successful time step integration
-    function status = myoutSmple(t, x, flag)
+    function status = myoutSimple(t, x, flag)
         % Forse è inutile per questo scopo perchè passa un vettore di tempi
         % mentre la funzione di output ha bisogno dei singoli tempi a
         % causa del dt
@@ -125,7 +125,7 @@ function main()
 
     %% Simulation
     CHS = 'ctrl';
-    options = odeset('RelTol',1e-5,'AbsTol',1e-4,'OutputFcn',@myout);%,...
+    options = odeset('RelTol',1e-5,'AbsTol',1e-4);%,'OutputFcn',@myout);%,...
    %'Events',@events);
     x_way = [ 728/3.3; 1; 25000/3.3]; % Vias [kts] h [ft] hdot [ft/min]
     switch CHS
@@ -133,6 +133,7 @@ function main()
             Tfin = 40;
             hdotc = 1000;               % ft/min RoC
             load('Data\test_conditions.mat','xref','x0');
+            options.OutputFcn = @myoutSimple;
             te = 0; x_add = storefun([te;te;hdotc]);
             ye = xref(1:4)'; ye = [ye;0;0];
             y_way = LongDynNoLin_Out( xref(:) );      % Defining the y desired output

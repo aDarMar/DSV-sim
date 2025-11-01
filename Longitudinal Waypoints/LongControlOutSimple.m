@@ -151,7 +151,7 @@ function [uCL,dxdt,Kh,comm] = CLcontrol...
             % EXP: usiamo i valori desiderati
             [~,~,~,rho,~,~] = atmosisa(y_way(3));
             V = IAS2TAS(y_way(1),y_way(3)); q = 0.5*rho*V^2;               % CL is TAS @ des point
-            [~,D] = AC.Aerodynamic_Mod(CL = AC.m*9.81/(q*AC.Sw)); 
+            %[~,D] = AC.Aerodynamic_Mod(CL = AC.m*9.81/(q*AC.Sw)); 
             D = D*q*AC.Sw; T = AC.Thrust_Law(1,y_way(3),'ipt');
             comm = (T - D)*x(1)/( AC.m*9.81*(1+hdotcust) );
 
