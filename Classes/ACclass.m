@@ -247,6 +247,7 @@ classdef ACclass
 
         end
 
+
         function [Kb,Kp,Ki] = gain_assign(obj,name)
             load(name,'Kb','Kp','Ki');
             %Kb = GNS.Kb;

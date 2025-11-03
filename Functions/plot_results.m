@@ -37,7 +37,7 @@ function plot_results(AC,flg,t,x,x_aux,x_debug,tl,xl,A,C,xref)
             'MarkerFaceColor', [0 0.5 0], ...% colore interno (rosso)
             'LineWidth', 1.5);
         case 'waypoint'
-        
+            plotfigs(AC,t,x,x_aux,x_debug);
         
     end
 
@@ -121,4 +121,40 @@ function [fig,ax] = plotfigs(AC,t,x,x_aux,x_debug)
             'DisplayName', NM{k} );
     end
     legend(ax(i,j));
+end
+
+function [fig,ax] = IAShplot(AC,t,x,x_aux,x_debug,store_way)
+    % h-IAS error plane
+    nfigpp = 4; % Number of subplots per page
+
+    i = 1;                                          % figure index
+    y = LongDynNoLin_Out(x'); y = y';                        % output vector
+    fig(i) = figure('Name','h-V error plane');
+
+    n_way = length( store_way(:,1));
+    nfig = ceil(n_way/nfigpp);
+    ip = 1;
+    for ifi = 1:nfig
+        fig(ifi) = figure('Name',['h-V error plane - ',num2str(ifi)]);
+        while ip-nfigpp*(ifi-1) < nfigpp+1 || ip < n_way + 1
+            idf = ip-nfigpp*(ifi-1);
+            ax(ip) = subplot(nrow,ncol,idf,'Parent',fig(ifi)); hold(ax(ip),'on')
+            if ip > 1
+                idxs = all( t>store_way(ip-1,1), t<store_way(ip,1) );
+            else
+                idxs = t<store_way(ip,1) ;
+            end
+            yac = y( idxs ,: ); Vmax = max( abs(yac(:,1)) ); hmax = max( abs(yac(:,1)) );
+            % Grid plotting
+            plot( ax(ip),[-Vmax,Vmax],[1,1]*store_way(ip,2)  )
+            plot( ax(ip),[-Vmax,Vmax],[-1,-1]*store_way(ip,2)  )
+            plot( ax(ip),[-Vmax,-Vmax],[-hmax,hmax]  )
+            plot( ax(ip),[Vmax,Vmax],[-hmax,hmax]  )
+            % Path
+            plot( ax(ip),yac(1,1),yac(1,2),'or' );% Red dot to indicate starting point
+            plot( ax(ip),yac(:,1),yac(:,2) );
+
+            ip = ip+1;
+        end
+    end
 end

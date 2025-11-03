@@ -62,15 +62,21 @@ function main()
     %LongDynNL_cont Summary of this function goes here
     %   x: state vector + auxiliary variables [Va,ga,h,Icl,It]
     %global wayReach iWay
-        addt = x_add();                                 % [t(n-1),t@dt<0]
-        if ~(t - addt(1)) > 0                           % The integration has "gone back" in time
+        addt = x_add();                                 % [t(n-1),t@dt<0,dt,Kh@t(n-1),Vc@t(n-1)]
+        addt(3) = t - addt(1);                          % dt used in the controller
+        if addt(3) < 0                           % The integration has "gone back" in time
             addt(1) = addt(2);                          
             addt(2) = t;
+            addt(3) = t - addt(1);
+        %elseif addt(3) == 0
+         %   addt(3) = 
+        %else
+
         end
 
-        [uct,uout,dxdt_c] = LongControlOut(t,x,y_way,addt,bounds);
+        [uct,uout,dxdt_c] = LongControlOut(t,x,y_way,addt,bounds,AC);
         dxdt = LonDynNoLin(t,x,uct,AC);
-        addt(1) = t;
+        addt(1) = t; addt(4) = uout(4); addt(5) = uout(2);
         x_add = storefun(addt);
         out_step = out_step();
         out_step = storefun([out_step;[t,uout(:)',uct(:)']]); % CREARE UN VETTORE DI OUTPUT DA SALVARE
@@ -79,17 +85,17 @@ function main()
 
     % event function: stops the integration when a waypoint is reached
     function [position,isterminal,direction] = wayReachedEvent(t,x,y_way)
-        stop = 10;
+        %stop = 10;
         y = LongDynNoLin_Out(x);
-        err = y_way(:) - y(:); tol = 1;
+        err = y_way(:) - y(:); tol = [0.5;250];
         %err = 1 - y(:)./y_way(:); % Relative error
         %err = err(isnan(err)); % Removes nan like commanded values equal to 0
-        if norm(err,'inf') < tol
-            stop = 0;   % stop is set equal to 0 if the maximum error is within tolerance
-        end
-        position = stop;    % When stop = 0 the integration stops
-        isterminal = 1;     % Halt integration
-        direction = 0;      % Zero can be approached from either directions
+        % if norm(err,'inf') < tol
+        %     stop = 0;   % stop is set equal to 0 if the maximum error is within tolerance
+        % end
+        position = [err(1);err(3)] - tol;    % When stop = 0 the integration stops
+        isterminal = [1;1];     % Halt integration
+        direction = [];      % Zero can be approached from either directions
     end
     
     % output function: it is called by the ode solver only after a
@@ -189,26 +195,30 @@ function main()
             end
         case 'waypoint'
             
-            x_way = [ 222.1,90,120;0,0,0;7625,1300,4300]; % Vias [kts] h [ft] hdot [ft/min]
-            
+            %x_way = [ 222.1,90,120;0,0,0;7625,1300,4300]; % Vias [kts] h [ft] hdot [ft/min]
+            x_way = [130,100;0,0;4000,3000;15400,15400];
             Tfin = 5000;                                         % Final time
             te = 0;                                              % Starting time
-            ye = x_way(:,1);                                     % Initial condition
+            ye = [x_way(:,1);0;0];                               % Initial condition
             tres = []; xres = [];                                % Storage vectors
             options.OutputFcn = @myoutSimple;                    % Set output function TODOOOO CHANGE FUN
-            
-            for iway = 2:length( x_way(1,:) )
+            nway = length( x_way(1,:) );
+            store_way = nan(3,nway);
+            for iway = 2:nway
                 % event function: stops the integration when a waypoint is reached. It
                 % is defined in the loop so that is SHOULD update the terminator
                 % condition at each waypoint
-                x_add = storefun([te;te]);
-                y_way = LongDynNoLin_Out( x_way(:,iway) );      % Defining the y desired output
+                x_add = storefun([te;te;0;-1;0]);
+                y_way = LongDynNoLin_Out( x_way(:,iway) );      % Defining the y desired output. The bounds are in kts and ft
                 bounds = UpdateBounds( x_way(:,iway) );
                 wayevent =@(t,x)wayReachedEvent(t,x,y_way);     % Defining the termination event for the ith waypoint
                 options.Events = wayevent;                      % Updates events function with new waypoint
                 [t,x,te,ye,ie] = ode113( @(t,x)LongDynNLCon( t,x,AC,y_way,bounds ),...
                     [te,Tfin],ye,options );
                 tres = [tres;t]; xres = [xres;x];               % Saves the ith waypoint results
+                store_way(iway,:) = [te,bounds(:)',ye(:)'];
             end
+            x_debug = out_step();
+            plot_results(AC,CHS,tres,xres,[xres,xres]*nan,x_debug,store_way);
     end
 end
