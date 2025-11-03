@@ -58,7 +58,7 @@ function main()
         
     end
 
-    function dxdt = LongDynNL_cont(t,x,AC,y_way,bounds)
+    function dxdt = LongDynNLCon(t,x,AC,y_way,bounds)
     %LongDynNL_cont Summary of this function goes here
     %   x: state vector + auxiliary variables [Va,ga,h,Icl,It]
     %global wayReach iWay
@@ -67,17 +67,13 @@ function main()
             addt(1) = addt(2);                          
             addt(2) = t;
         end
-        %stdata = out_step()
-        % if addt(1) == 1                                    % i-th waypoint reached
-        %     addt(2) = addt(2) + 1;                            % looks for new waypoint
-        %     bounds  = UpdateBounds( x_way(:,iWay) );
-        %     addt(1) = -1;
-        % end
+
         [uct,uout,dxdt_c] = LongControlOut(t,x,y_way,addt,bounds);
         dxdt = LonDynNoLin(t,x,uct,AC);
         addt(1) = t;
         x_add = storefun(addt);
-        out_temp = storefun([uout(:)',uct(:)']); % CREARE UN VETTORE DI OUTPUT DA SALVARE
+        out_step = out_step();
+        out_step = storefun([out_step;[t,uout(:)',uct(:)']]); % CREARE UN VETTORE DI OUTPUT DA SALVARE
         dxdt = [dxdt(:);dxdt_c(:)];
     end
 
@@ -131,10 +127,10 @@ function main()
     end
 
     %% Simulation
-    CHS = 'ctrl'; 
+    CHS = 'waypoint'; 
     options = odeset('RelTol',1e-6,'AbsTol',1e-5);%,'OutputFcn',@myout);%,...
    %'Events',@events);
-   x_way = [ 728/3.3; 1; 25000/3.3]; % Vias [kts] h [ft] hdot [ft/min]
+
    switch CHS
        case 'ctrl'
            CTR = 'Vc'; % Cambia qua e la variabile TEST in LongControlOutSimple
@@ -162,7 +158,7 @@ function main()
                    y_way(1) = Vc;
                    x_add = storefun([te;te;Vc]);
                    k = 2;
-               case'b'
+               case 'b'
                    Vc = 200;
                    hdotc = 100;
                    y_way(1) = Vc;
@@ -192,9 +188,15 @@ function main()
                 plot_results(AC,CHS,t,x,x_aux,x_debug);
             end
         case 'waypoint'
+            
+            x_way = [ 222.1,90,120;0,0,0;7625,1300,4300]; % Vias [kts] h [ft] hdot [ft/min]
+            
+            Tfin = 5000;                                         % Final time
             te = 0;                                              % Starting time
             ye = x_way(:,1);                                     % Initial condition
             tres = []; xres = [];                                % Storage vectors
+            options.OutputFcn = @myoutSimple;                    % Set output function TODOOOO CHANGE FUN
+            
             for iway = 2:length( x_way(1,:) )
                 % event function: stops the integration when a waypoint is reached. It
                 % is defined in the loop so that is SHOULD update the terminator
@@ -204,7 +206,7 @@ function main()
                 bounds = UpdateBounds( x_way(:,iway) );
                 wayevent =@(t,x)wayReachedEvent(t,x,y_way);     % Defining the termination event for the ith waypoint
                 options.Events = wayevent;                      % Updates events function with new waypoint
-                [t,x,te,ye,ie] = ode45( @(t,x)LongDynNL_cont( t,x,AC,y_way,bounds ),...
+                [t,x,te,ye,ie] = ode113( @(t,x)LongDynNLCon( t,x,AC,y_way,bounds ),...
                     [te,Tfin],ye,options );
                 tres = [tres;t]; xres = [xres;x];               % Saves the ith waypoint results
             end

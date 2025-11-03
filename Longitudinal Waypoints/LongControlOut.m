@@ -2,70 +2,67 @@ function [u,u_out,dxdt] = LongControlOut(t,x,y_way,x_add,bounds)
 %LongControlOut Summary of this function goes here
 %   INPUT
 %   - bounds: [vbound,hbound,V/g] in SI units
-    KHS = 0.0167; FPMc = ; ER1 = 2.3;% Khdot 1 [1/s] RoD custom 500 fpm ER1 Energy ratio in Reg. 1
-    %x_addN = nan(length(x_add),1);      % CAPIRE se aumentare di dimensioni x_add ad ogni time step o ritornare solo l'ultimo valore
+    KHS = 0.0167; FPMc = ; ER1 = 2.3;   % Khdot 1 [1/s] RoD custom 500 fpm ER1 Energy ratio in Reg. 1
     y = LongDynNoLin_Out(x(1,3));       % State output
-    %y_way = LongDynNoLin_Out(x_way);   % Reference state output
     err = y_way(:) - y(:);              % Error definition
-    % if norm(err,'inf') < tol            % Waypoint reached
-    %     x(6) = 1;
-    % end
-    u_out(1) = ZoneIdf(err,bounds);          % Identifies the zone in which the aircraft is                 Flag vector [ slow,fast,Low,High,lowenergy]
+
+    u_out(1) = ZoneIdf(err,bounds);     % Identifies the zone in which the aircraft is                 Flag vector [ slow,fast,Low,High,lowenergy]
     u = zeros(2,1);                     % Force Vector [CL,T]
     switch u_out(1)
         case 7
         % Steady Level Flight
             [u(1),dxdt(1),u_out(4),u_out(3) ] = ...
-               CLcontrol('h',t,x,y,y_way,err,x_add,AC,nan);     % CL control of hdot
-            [u(2),dxdt(2),u_out(2) ] = Tcontrol(x,y,y_way); % Thrust control of IAS  
+               CLcontrol('h',t,x,y,y_way,err,x_add,AC,3,nan);         % CL control of hdot
+            [u(2),dxdt(2),u_out(2) ] = Tcontrol(AC,3,x,y,y_way);    % Thrust control of IAS  
         case 2
         % Accelerating Flight
-            [u(1),dxdt(1),u_out(4),u_out(3) ] = ...         % CL control of hdot
-                CLcontrol('h',t,x,y,y_way,err,x_add,AC,nan);         
-            dxdt(2) = 0;                                    % There is no integral control of T
-            u(2) = AC.Thrust_Law(1,x(3),'ipt');                % Throttle set to full VEDER SE SOSTITUIRE CON mxC
+            [u(1),dxdt(1),u_out(4),u_out(3) ] = ...                 % CL control of hdot
+                CLcontrol('h',t,x,y,y_way,err,x_add,AC,1,nan);         
+            dxdt(2) = 0;                                            % There is no integral control of T
+            u(2) = AC.Thrust_Law(1,x(3),'ipt');                     % Throttle set to full VEDER SE SOSTITUIRE CON mxC
         case 25
         % Descending & Accelerating
-            [u(1),dxdt(1),u_out(4),u_out(3) ] = ...         % CL control of hdot
-                CLcontrol('h',t,x,y,y_way,err,x_add,AC,KHS);  % Khdot is 1 1/min 
-            dxdt(2) = 0;                                    % There is no integral control of T
-            u(2) = AC.Thrust_Law(1,x(3),'idl');                % Throttle set to idle
+            [u(1),dxdt(1),u_out(4),u_out(3) ] = ...                 % CL control of hdot
+                CLcontrol('h',t,x,y,y_way,err,x_add,AC,1,KHS);        % Khdot is 1 1/min 
+            dxdt(2) = 0;                                            % There is no integral control of T
+            u(2) = AC.Thrust_Law(1,x(3),'idl');                     % Throttle set to idle
         case 5
         % Decelerating
-            [u(1),dxdt(1),u_out(4),u_out(3) ] = ...         % CL control of hdot
-                CLcontrol('h',t,x,y,y_way,err,x_add,AC,nan);
-            dxdt(2) = 0;                                    % There is no integral control of T
-            u(2) = AC.Thrust_Law(1,x(3),'idl');                % Throttle set to full VEDER SE SOSTITUIRE CON mxC
+            [u(1),dxdt(1),u_out(4),u_out(3) ] = ...                 % CL control of hdot
+                CLcontrol('h',t,x,y,y_way,err,x_add,AC,1,nan);
+            dxdt(2) = 0;                                            % There is no integral control of T
+            u(2) = AC.Thrust_Law(1,x(3),'idl');                     % Throttle set to full VEDER SE SOSTITUIRE CON mxC
         case 55
         % Climbing & Decelerating
-            [u(1),dxdt(1),u_out(4),u_out(3) ] = ...         % CL control of hdot
-                CLcontrol('hc',t,x,y,y_way,err,x_add,AC,KHS,FPMc);      % Khdot is 1 1/min 
+            [u(1),dxdt(1),u_out(4),u_out(3) ] = ...                 % CL control of hdot
+                CLcontrol('hc',t,x,y,y_way,err,x_add,AC,1,KHS,FPMc);  % Khdot is 1 1/min 
             dxdt(2) = 0;
-            u(2) = AC.Thrust_Law(1,x(3),'ipt');                % Throttle set to full VEDER SE SOSTITUIRE CON mxC
+            u(2) = AC.Thrust_Law(1,x(3),'ipt');                     % Throttle set to full VEDER SE SOSTITUIRE CON mxC
         case 3
         % Descending
-            [u(1),dxdt(1),u_out(4),u_out(3) ] = ...         % CL control of V
-                CLcontrol('V',t,x,y,y_way,err,x_add,AC);
+            [u(1),dxdt(1),u_out(4),u_out(2) ] = ...                 % CL control of V
+                CLcontrol('V',t,x,y,y_way,err,x_add,AC,2);
             dxdt(2) = 0;
             u(2) = AC.Thrust_Law(1,x(3),'idl');        
         case 6
         % Climbing
-            [u(1),dxdt(1),u_out(4),u_out(3) ] = ...         % CL control of V
-                CLcontrol('V',t,x,y,y_way,err,x_add,AC);
-            u(2) = AC.Thrust_Law(1,x(3),'ipt');                % SOLITA COSA DI TMAX
+            [u(1),dxdt(1),u_out(4),u_out(2) ] = ...                 % CL control of V
+                CLcontrol('V',t,x,y,y_way,err,x_add,AC,2);
+            dxdt(2) = 0;
+            u(2) = AC.Thrust_Law(1,x(3),'ipt');                     % SOLITA COSA DI TMAX
         case 1
         % Climbing & Accelerating
             
-            [u(1),dxdt(1),u_out(4),u_out(3) ] = ...         % CL control of hdot
-                CLcontrol('hc',t,x,y,y_way,err,x_add,AC,nan,ER1); 
+            [u(1),dxdt(1),u_out(4),u_out(3) ] = ...                 % CL control of hdot
+                CLcontrol('hc',t,x,y,y_way,err,x_add,AC,1,nan,ER1); 
             dxdt(2) = 0;
-            u(2) = Thrust_Law(1,x(3),'idl');
+            u(2) = AC.Thrust_Law(1,x(3),'idl');
         case 4
         % Descending & Decelerating
             [u(1),dxdt(1),u_out(4),u_out(3) ] = ...         % CL control of hdot
-                CLcontrol('hc',t,x,y,y_way,err,x_add,AC,nan,ER1); 
+                CLcontrol('hc',t,x,y,y_way,err,x_add,AC,1,nan,ER1); 
             dxdt(2) = 0;
-            u(2) = Thrust_Law(1,x(3),'idl');
+            u(2) = AC.Thrust_Law(1,x(3),'idl');
     end
 end
 
@@ -120,21 +117,20 @@ end
 
 
 function [uCL,dxdt,Kh,comm] = CLcontrol...
-    (flg,t,x,y,y_way,err,x_add,AC,Kh,hdotcust)
+    (flg,t,x,y,y_way,err,x_add,AC,k,Kh,hdotcust)
 % CL control of altitude or speed
 % UNTESTED SPECIFICARE CONALT e capire come gestire conalt tra regione 7 e
 % 25
-    [Kp,Ki,Kb] = Control_Gains(x); 
     switch flg
         case 'h'
             [comm,Kh] = hdot_des(y,y_way,err,x_add,Kh); % ADD conalt. Returns the state vector with ONLY x(8) updated (Khdot)
-            dxdt = Ki(1,:)*[0;0;0;comm-y(4)];
-            uCL = Kp(1,:)*( [0;0;0;comm-y(4)] ) - Kb(1,:)*[0;0;0;y(4)] + x(4);
+            dxdt = AC.Ki(1,:,k)*[0;0;0;comm-y(4)];
+            uCL = AC.Kp(1,:,k)*( [0;0;0;comm-y(4)] ) - AC.Kb(1,:,k)*[0;0;0;y(4)] + x(5);
         case 'hc' % hdot custom: hdot is the maximum between the value in Kh and the one calculated
             [comm,Kh] = hdot_des(y,y_way,err,x_add,Kh);
             comm = max( comm,abs(hdotcust) ); % hdotc is the maximum between the one calculated and the one given CONTROLLA IL SEGNO FORSE ROD (<0)
-            dxdt = Ki(1,:)*[0;0;0;comm-y(4)];
-            uCL = Kp(1,:)*( [0;0;0;comm-y(4)] ) - Kb(1,:)*[0;0;0;y(4)] + x(4);
+            dxdt = AC.Ki(1,:,k)*[0;0;0;comm-y(4)];
+            uCL = AC.Kp(1,:,k)*( [0;0;0;comm-y(4)] ) - AC.Kb(1,:,k)*[0;0;0;y(4)] + x(5);
         case 'hER' % hdot is calculated using entry rate (it is given as hdotcust)
             if ~isnan(Kh)
                 error('To use CL control of hdot with entry rate Kh must be passed as nan')
@@ -142,29 +138,38 @@ function [uCL,dxdt,Kh,comm] = CLcontrol...
             % EXP: usiamo i valori desiderati
             [~,~,~,rho,~,~] = atmosisa(y_way(3));
             V = IAS2TAS(y_way(1),y_way(3)); q = 0.5*rho*V^2;               % CL is TAS @ des point
-            [~,D] = AC.Aerodynamic_Mod(CL = AC.m*9.81/(q*AC.Sw)); 
+            [~,D] = AC.Aerodynamic_Mod(CL = x(4)*9.81/(q*AC.Sw)); 
             D = D*q*AC.Sw; T = AC.Thrust_Law(1,y_way(3),'ipt');
-            comm = (T - D)*x(1)/( AC.m*9.81*(1+hdotcust) );
+            comm = (T - D)*x(1)/( x(4)*9.81*(1+hdotcust) );
 
-            dxdt = Ki(1,:)*[0;0;0;comm-y(4)];
-            uCL = Kp(1,:)*( [0;0;0;comm-y(4)] ) - Kb(1,:)*[0;0;0;y(4)] + x(4);
+            dxdt = AC.Ki(1,:,k)*[0;0;0;comm-y(4)];
+            uCL = AC.Kp(1,:,k)*( [0;0;0;comm-y(4)] ) - AC.Kb(1,:,k*[0;0;0;y(4)] + x(5);
         case 'V'
             comm = V_des(t,y,y_way);
             Kh = nan;
-            dxdt = Ki(1,:)*[Vc-y(1);0;0;0];
-            uCL = Kp(1,:)*( [comm-y(1);0;0;0] ) - Kb(1,:)*[y(1);0;0;0] + x(4);
+            dxdt = AC.Ki(1,:,k)*[Vc-y(1);0;0;0];
+            uCL = AC.Kp(1,:,k)*( [comm-y(1);0;0;0] ) - AC.Kb(1,:,k)*[y(1);0;0;0] + x(5);
     end
     uCL = AC.Aerodynamic_Mod(x(3),uCL); % Checks if the aircraft can attain the required CL
 end
 
-function [uT,dxdt,Vc] = Tcontrol(x,y,y_way)
-% T control of IAS
+function [uT,dxdt,Vc] = Tcontrol(AC,k,x,y,y_way)
+%TCONTROL: function that returns the thrust used to control speed (IAS)
+%   INPUT
+%   - AC: ACClass aircraft object
+%   - k: index that specifies the gain of the controller in AC
+%   - x: state vector [V,ga,h,m] in SI units
+%   - y: output vector [IAS,M,h,hdot] in [kts,-,ft,fpm]
+%   - y_way: output vector of reference state
+%   OUTPUT
+%   - uT: controlled Thrust [N]
+%   - dxdt: integral thrust controller
+%   - Vc: commanded speed [IAS]
 % UNTESTED
-    [Kp,Ki,Kb] = Control_Gains(x);                                  % Controller Gains for specific flight condition
     Vc = V_des(t,y,y_way);
-    uT = Kp(2,:)*[Vc-y(1);0;0;0] - Kb(2,:)*[y(1);0;0;0] + x(5);     % Calculates the required thrust to attain the Vc
-    dxdt = Ki(2,:)*[Vc-y(1);0;0;0];
-    uT = Thrust_Law(uT,x(3));                                       % Checks if teh engien can provide the required thrust
+    uT = AC.Kp(2,:,k)*[Vc-y(1);0;0;0] - AC.Kb(2,:,k)*[y(1);0;0;0] + x(6);     % Calculates the required thrust to attain the Vc
+    dxdt = AC.Ki(2,:,k)*[Vc-y(1);0;0;0];
+    uT = AC.Thrust_Law(uT,x(3));                                       % Checks if teh engien can provide the required thrust
 end
 
 function [hdotc,Kh] = hdot_des(y,y_way,err,x_add,Kh)
@@ -191,26 +196,3 @@ function  Vc = V_des(t,y,y_way,x_add)
 % UNTESTED - PUO DARE PROBLEMI a causa delal dipendenza da dt di Vc
     Vc = 0.51444*( y_way(1)-y(1) )/abs( y_way(1)-y(1) ) * ( t-x_add(1) ); % PROBLEMA: ODE45 ha il passo adattivo, quindi t va avanti e indietro
 end
-
-% if err(1) < -Vbound
-%     % Aircraft is Fast: Vref - V < -Vbound
-%     flg(2) = true;
-%     if
-% end
-% if err(1) > Vbound
-%     % Aircraft is Slow
-%     flg(1) = true;
-% end
-% if err(3) < -bounds(2)
-%     % Aircraft is High
-%     flg(3) = true;
-% end
-% if err(3) > hboun
-%     % Aircraft is Low
-%     flg(4) = false;
-% end
-% if err(3) > - x_way(1)/g*err(1)
-%     % Aircraft is High Energy
-%     flg(5) = true;
-% end
-% end
