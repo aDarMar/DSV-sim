@@ -2,51 +2,68 @@ function [u,u_out,dxdt] = LongControlOut(t,x,y_way,x_add,bounds,AC)
 %LONGCONTROLOUT Summary of this function goes here
 %   INPUT
 %   - bounds: [vbound,hbound,V/g] in SI units
+%   OUTPUT
+%   - u_out: [ID,Vc,hdotc,Kh,Vd]
     KHS = 1; FPMc = 500; ER1 = 2.3;     % Khdot 1 [1/s] RoD custom 500 fpm ER1 Energy ratio in Reg. 1
     y = LongDynNoLin_Out(x(:));         % State output
     err = y_way(:) - y(:);              % Error definition
-
+    u_out = nan(1,4);                   % Initialize output vector
     u_out(1) = ZoneIdf(err,bounds);     % Identifies the zone in which the aircraft is                 Flag vector [ slow,fast,Low,High,lowenergy]
     u = zeros(2,1);                     % Force Vector [CL,T]
     switch u_out(1)
         case 7
         % Steady Level Flight
+        % In this region Vd = Vc but we save Vd as VIAS because it is the
+        % starting value for Vd in speed only controlled regions
             [u(1),dxdt(1),u_out(4),u_out(3) ] = ...
-               CLcontrol('h',t,x,y,err,x_add,AC,3,nan);       % CL control of hdot
-            [u(2),dxdt(2),u_out(2) ] = Tcontrol(AC,3,x,y,y_way,'lev');    % Thrust control of IAS  
+                CLcontrol('h',t,x,y,err,x_add,AC,3,nan);             % CL control of hdot
+            [u(2),dxdt(2),u_out(2) ] = Tcontrol(AC,3,x,y,y_way,'lev');    % Thrust control of IAS
+            u_out(2) = y(1);                                        % Vd is not defined so it saved as Vc
         case 2
-        % Accelerating Flight
+            % Accelerating Flight
             [u(1),dxdt(1),u_out(4),u_out(3) ] = ...                 % CL control of hdot
-                CLcontrol('h',t,x,y,err,x_add,AC,1,nan);         
+                CLcontrol('h',t,x,y,err,x_add,AC,1,nan);
             dxdt(2) = 0;                                            % There is no integral control of T
             u(2) = AC.Thrust_Law(1,x(3),'ipt');                     % Throttle set to full VEDER SE SOSTITUIRE CON mxC
+            u_out(2) = y(1);                                            % Vd is not defined and it is equal to V
         case 25
-        % Descending & Accelerating
+            % Descending & Accelerating
             [u(1),dxdt(1),u_out(4),u_out(3) ] = ...                 % CL control of hdot
-                CLcontrol('h',t,x,y,err,x_add,AC,1,KHS);            % Khdot is 1 1/min 
+                CLcontrol('h',t,x,y,err,x_add,AC,1,KHS);            % Khdot is 1 1/min
             dxdt(2) = 0;                                            % There is no integral control of T
             u(2) = AC.Thrust_Law(1,x(3),'idl');                     % Throttle set to idle
+            u_out(2) = y(1);                                            % Vd is not defined and it is equal to V
+
         case 5
         % Decelerating
             [u(1),dxdt(1),u_out(4),u_out(3) ] = ...                 % CL control of hdot
                 CLcontrol('h',t,x,y,err,x_add,AC,1,nan);
             dxdt(2) = 0;                                            % There is no integral control of T
             u(2) = AC.Thrust_Law(1,x(3),'idl');                     % Throttle set to full VEDER SE SOSTITUIRE CON mxC
+            u_out(2) = y(1);                                            % Vd is not defined and it is equal to V
+
         case 55
         % Climbing & Decelerating
             [u(1),dxdt(1),u_out(4),u_out(3) ] = ...                 % CL control of hdot
                 CLcontrol('hc',t,x,y,err,x_add,AC,1,KHS,FPMc);      % Khdot is 1 1/min 
             dxdt(2) = 0;
             u(2) = AC.Thrust_Law(1,x(3),'ipt');                     % Throttle set to full VEDER SE SOSTITUIRE CON mxC
+            u_out(2) = y(1);                                            % Vd is not defined and it is equal to V
+
         case 3
         % Descending
-            [u(1),dxdt(1),u_out(4),u_out(2) ] = ...                 % CL control of V
+        % In this region Vc (speed of the waypoint) is different from Vd
+        % (speed used by the controller)
+            [u(1),dxdt(1),u_out(4),u_out(2) ] = ...                 % CL control of V Vd is taken from the Vc function
                 CLcontrol('V',t,x,y,err,x_add,AC,2);
             dxdt(2) = 0;
             u(2) = AC.Thrust_Law(1,x(3),'idl');        
+        
         case 6
         % Climbing
-            [u(1),dxdt(1),u_out(4),u_out(2) ] = ...                 % CL control of V
+        % In this region Vc (speed of the waypoint) is different from Vd
+        % (speed used by the controller)
+            [u(1),dxdt(1),u_out(4),u_out(2) ] = ...                 % CL control of V Vd is taken from the Vc function
                 CLcontrol('V',t,x,y,err,x_add,AC,2);
             dxdt(2) = 0;
             u(2) = AC.Thrust_Law(1,x(3),'ipt');                     % SOLITA COSA DI TMAX
@@ -63,6 +80,7 @@ function [u,u_out,dxdt] = LongControlOut(t,x,y_way,x_add,bounds,AC)
                 CLcontrol('hER',t,x,y,err,x_add,AC,1,4,ER1,y_way); 
             dxdt(2) = 0;
             u(2) = AC.Thrust_Law(1,x(3),'idl');
+            u_out(2) = y(1);                                            % Vd is not defined and it is equal to V
     end
 end
 
@@ -227,5 +245,8 @@ function  Vc = V_des(err,x_add)
 %   - err: speed error
 %   - x:add: additional values from the previous time step [t(n-1),t@dt<0,dt,Kh@t(n-1),Vc@t(n-1)]
 % UNTESTED - PUO DARE PROBLEMI a causa delal dipendenza da dt di Vc
-    Vc = x_add(5) + ( err(1) )/abs( err(1) ) * x_add(1); % PROBLEMA: ODE45 ha il passo adattivo, quindi t va avanti e indietro
+% x_add(5) is Vd at the previous time step. The code is written in such a
+% way that if we are not in the speed only controleld zones, Vd is equal to
+% the actual VIAS, so that x_add is always equal to VIAS or Vc@t(n-1)
+    Vc = x_add(5) + ( err(1) )/abs( err(1) ) * x_add(3); % PROBLEMA: ODE45 ha il passo adattivo, quindi t va avanti e indietro
 end

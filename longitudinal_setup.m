@@ -62,12 +62,16 @@ function main()
     %LongDynNL_cont Summary of this function goes here
     %   x: state vector + auxiliary variables [Va,ga,h,Icl,It]
     %global wayReach iWay
-        addt = x_add();                                 % [t(n-1),t@dt<0,dt,Kh@t(n-1),Vc@t(n-1)]
+        addt = x_add();                                 % [t(n-1),t@dt<0,dt,Kh@t(n-1),Vd@t(n-1)]
         addt(3) = t - addt(1);                          % dt used in the controller
-        if addt(3) < 0                           % The integration has "gone back" in time
+        if addt(3) < 0                                  % The integration has "gone back" in time
             addt(1) = addt(2);                          
             addt(2) = t;
             addt(3) = t - addt(1);
+
+            % DEBUG
+            addt(6) = addt(7);
+            addt(7) = x(1);
         %elseif addt(3) == 0
          %   addt(3) = 
         %else
@@ -76,7 +80,7 @@ function main()
 
         [uct,uout,dxdt_c] = LongControlOut(t,x,y_way,addt,bounds,AC);
         dxdt = LonDynNoLin(t,x,uct,AC);
-        addt(1) = t; addt(4) = uout(4); addt(5) = uout(2);
+        addt(1) = t; addt(4) = uout(4); addt(5) = uout(2); addt(6) = x(1);
         x_add = storefun(addt);
         out_step = out_step();
         out_step = storefun([out_step;[t,uout(:)',uct(:)']]); % CREARE UN VETTORE DI OUTPUT DA SALVARE
@@ -131,7 +135,38 @@ function main()
         end
 
     end
+    
+    function status = myout(t, x, flag)
+        % Forse è inutile per questo scopo perchè passa un vettore di tempi
+        % mentre la funzione di output ha bisogno dei singoli tempi a
+        % causa del dt
+    %https://stackoverflow.com/questions/38120741/using-persistent-variable-to-pass-out-extra-parameters-using-ode45-from-the-matl
+        % Don't ever halt the integration
+        status = 0;
+        switch flag
+            case "init"
+            % Initialization (apparently useless).
+                param = -2;
+            case "done"
+                % Nothing to do.
+            otherwise
+            % Main code to update param
+                nt = length(t);
+                store_temp = nan(nt,7); % [t,ID,Vc,hdotc,Kc,CL,T]
+                store = out_store(); addt = x_add();
+                for it = 1 :nt
+                    [uct,uout,~] = LongControlOut(t,x,y_way,addt,bounds,AC);
+                    store_temp(it,1) = t(it);
+                    store_temp(it,2:5) = uout(:)'; store_temp(it,6:7) = uct(:)';
+                end
+                out_store = storefun([store;store_temp]); 
+                %out = out_step(); % Retrives the successfull output vector up to now
+                %outup = out_temp();% Retrives the current timestep output
+                %out_step = storefun([out;outup(:)']); % Updates teh successful output step vector
 
+        end
+
+    end
     %% Simulation
     CHS = 'waypoint'; 
     options = odeset('RelTol',1e-6,'AbsTol',1e-5);%,'OutputFcn',@myout);%,...
@@ -201,14 +236,14 @@ function main()
             te = 0;                                              % Starting time
             ye = [x_way(:,1);0;0];                               % Initial condition
             tres = []; xres = [];                                % Storage vectors
-            options.OutputFcn = @myoutSimple;                    % Set output function TODOOOO CHANGE FUN
+            options.OutputFcn = @myout;                             % Set output function TODOOOO CHANGE FUN
             nway = length( x_way(1,:) );
-            store_way = nan(3,nway);
+            store_way = nan(nway,11); store_way(:,4:7) = x_way';
             for iway = 2:nway
                 % event function: stops the integration when a waypoint is reached. It
                 % is defined in the loop so that is SHOULD update the terminator
                 % condition at each waypoint
-                x_add = storefun([te;te;0;-1;0]);
+                x_add = storefun([te;te;0;-1;0;ye(1);ye(1)]);
                 y_way = LongDynNoLin_Out( x_way(:,iway) );      % Defining the y desired output. The bounds are in kts and ft
                 bounds = UpdateBounds( x_way(:,iway) );
                 wayevent =@(t,x)wayReachedEvent(t,x,y_way);     % Defining the termination event for the ith waypoint
@@ -216,9 +251,11 @@ function main()
                 [t,x,te,ye,ie] = ode113( @(t,x)LongDynNLCon( t,x,AC,y_way,bounds ),...
                     [te,Tfin],ye,options );
                 tres = [tres;t]; xres = [xres;x];               % Saves the ith waypoint results
-                store_way(iway,:) = [te,bounds(:)',ye(:)'];
+                store_way(iway,1:3) = [te,bounds(:)'];
             end
+            x_aux = out_store();
             x_debug = out_step();
-            plot_results(AC,CHS,tres,xres,[xres,xres]*nan,x_debug,store_way);
+            plot_results(AC,CHS,tres,xres,x_aux,x_debug...
+                ,[],[],[],[],[],store_way);
     end
 end

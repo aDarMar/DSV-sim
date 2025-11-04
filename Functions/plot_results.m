@@ -1,4 +1,4 @@
-function plot_results(AC,flg,t,x,x_aux,x_debug,tl,xl,A,C,xref)
+function plot_results(AC,flg,t,x,x_aux,x_debug,tl,xl,A,C,xref,store_way)
 %PLOT_RESULTS Function that plots the results of the integration
 %   INPUT
 %   x - longitudinal state vector [V,ga,h,m]
@@ -38,6 +38,7 @@ function plot_results(AC,flg,t,x,x_aux,x_debug,tl,xl,A,C,xref)
             'LineWidth', 1.5);
         case 'waypoint'
             plotfigs(AC,t,x,x_aux,x_debug);
+            IAShplot(AC,t,x,x_aux,x_debug,store_way);
         
     end
 
@@ -126,9 +127,12 @@ end
 function [fig,ax] = IAShplot(AC,t,x,x_aux,x_debug,store_way)
     % h-IAS error plane
     nfigpp = 4; % Number of subplots per page
-
+    nrow = 2;
+    ncol = 2;
     i = 1;                                          % figure index
     y = LongDynNoLin_Out(x'); y = y';                        % output vector
+    store_way = store_way(2:end,:);                             % Removes the starting point
+    store_way(:,8:11) = LongDynNoLin_Out(store_way(:,4:7)')';
     fig(i) = figure('Name','h-V error plane');
 
     n_way = length( store_way(:,1));
@@ -136,23 +140,26 @@ function [fig,ax] = IAShplot(AC,t,x,x_aux,x_debug,store_way)
     ip = 1;
     for ifi = 1:nfig
         fig(ifi) = figure('Name',['h-V error plane - ',num2str(ifi)]);
-        while ip-nfigpp*(ifi-1) < nfigpp+1 || ip < n_way + 1
+        while ip-nfigpp*(ifi-1) < nfigpp+1 && ip < n_way + 1
             idf = ip-nfigpp*(ifi-1);
             ax(ip) = subplot(nrow,ncol,idf,'Parent',fig(ifi)); hold(ax(ip),'on')
             if ip > 1
                 idxs = all( t>store_way(ip-1,1), t<store_way(ip,1) );
             else
-                idxs = t<store_way(ip,1) ;
+                idxs = t<store_way(1,1) ;
             end
-            yac = y( idxs ,: ); Vmax = max( abs(yac(:,1)) ); hmax = max( abs(yac(:,1)) );
+            yac = y( idxs ,: ); Vmax = max( abs(yac(:,1)) ); hmax = max( abs(yac(:,3)) );
+            errs = store_way(ip,8:11)' - yac'; errs = errs';
+            Vmax = max( abs(errs(:,1)) ); hmax = max( abs(errs(:,3)) );
             % Grid plotting
-            plot( ax(ip),[-Vmax,Vmax],[1,1]*store_way(ip,2)  )
-            plot( ax(ip),[-Vmax,Vmax],[-1,-1]*store_way(ip,2)  )
-            plot( ax(ip),[-Vmax,-Vmax],[-hmax,hmax]  )
-            plot( ax(ip),[Vmax,Vmax],[-hmax,hmax]  )
+            plot( ax(ip),[-Vmax,Vmax],[1,1]*store_way(ip,3)  )
+            plot( ax(ip),[-Vmax,Vmax],[-1,-1]*store_way(ip,3)  )
+            plot( ax(ip),[-1,-1]*store_way(ip,2),[-hmax,hmax]  )
+            plot( ax(ip),[1,1]*store_way(ip,2),[-hmax,hmax]  )
+            axis(ax(ip),[-Vmax,Vmax,-hmax,hmax]);
             % Path
-            plot( ax(ip),yac(1,1),yac(1,2),'or' );% Red dot to indicate starting point
-            plot( ax(ip),yac(:,1),yac(:,2) );
+            plot( ax(ip),-errs(1,1),-errs(1,3),'or' );% Red dot to indicate starting point
+            plot( ax(ip),-errs(:,1),-errs(:,3) );
 
             ip = ip+1;
         end
