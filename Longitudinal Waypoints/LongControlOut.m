@@ -61,7 +61,7 @@ function [u,u_out,dxdt] = LongControlOut(t,x,y_way,x_add,bounds,AC)
         % In this region Vc (speed of the waypoint) is different from Vd
         % (speed used by the controller)
             [u(1),dxdt(1),u_out(4),temp ] = ...                 % CL control of V Vd is taken from the Vc function
-                CLcontrol('V',t,x,y,err,x_add,AC,2);
+                CLcontrol('V',t,x,y,err,x_add,AC,2,[],[],y_way);
             dxdt(2) = 0; dxdt(3) = temp(1); u_out(5) = temp(2);
             u(2) = AC.Thrust_Law(1,x(3),'idl');        
             u_out(2) = x_add(2); % CONTOLLS SE SERVE
@@ -70,7 +70,7 @@ function [u,u_out,dxdt] = LongControlOut(t,x,y_way,x_add,bounds,AC)
         % In this region Vc (speed of the waypoint) is different from Vd
         % (speed used by the controller)
             [u(1),dxdt(1),u_out(4),temp ] = ...                 % CL control of V Vd is taken from the Vc function
-                CLcontrol('V',t,x,y,err,x_add,AC,2);
+                CLcontrol('V',t,x,y,err,x_add,AC,2,[],[],y_way);
             dxdt(2) = 0; dxdt(3) = temp(1); u_out(5) = temp(2);
             u(2) = AC.Thrust_Law(1,x(3),'ipt');                     % SOLITA COSA DI TMAX
             u_out(2) = x_add(2);                                    % In this case we are storing the VIAS at the beginning of the region
@@ -185,8 +185,15 @@ function [uCL,dxdt,Kh,comm] = CLcontrol...
             % if x_add(12) == 4 || x_add(12) == 5  % Checks if the ID @ previous time steo is in the V control zone
             %     x_add(6) = y(1);
             % end
-            comm = V_des(err(1)); % comm is now dVd/dt
-            Kh = -1; Vd = x(7) + x_add(2) - x_add(4); 
+            
+            if abs( err(1) )< 5
+               Vd = y_way(1);
+               comm = 0;
+            else
+                comm = V_des(err(1)); % comm is now dVd/dt 
+                Vd = x(7) + x_add(2) - x_add(4); 
+            end
+            Kh = -1; 
             dxdt = AC.Ki(1,:,k)*[Vd-y(1);0;0;0]; comm = [comm;Vd];
             uCL = AC.Kp(1,:,k)*( [Vd-y(1);0;0;0] ) - AC.Kb(1,:,k)*[y(1);0;0;y(4)] + x(5); % HO AGGIUNTO IL FEEDBACK DI HDOT
     end
@@ -236,7 +243,7 @@ function [hdotc,Kh] = hdot_des(y,err,x_add,Kh)
             elseif err(3) < 70                  % 70 ft tolerance
                 Kh = 7;                         % [1/min]
             else
-                Kh = x_add(4);                  % In this case Kh is the Kh calculated at the beginning of teh transition region
+                Kh = x_add(5);                  % In this case Kh is the Kh calculated at the beginning of teh transition region
             end
         end
         %else

@@ -123,7 +123,7 @@ classdef ACclass
         %          (iv) mxC: engine is set to max continous
         
         % TODO - FARE MODELLO MOTORE per ora i numeri sono temporanei
-            Tmax = 10000; % N
+            Tmax = 12000; % N
             if nargin == 3
                 T = Treq;
                 if Treq > Tmax

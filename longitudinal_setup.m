@@ -62,56 +62,15 @@ function main()
     %global wayReach iWay
         % flg = false;
         addt = x_add();                                 % [t(n-1),t@dt<0,dt,Kh@t(n-1),Vd@t(n-1)]
-        % addt(3) = t - addt(1);                          % dt used in the controller
-        % if addt(3) < 0                                  % The integration has "gone back" in time
-        %     flg = true;
-        %     addt(1) = addt(2);                          
-        %     addt(2) = t;
-        %     addt(3) = t - addt(1);
-        % 
-        %     % Vd
-        %     %temp = addt(6);
-        %     addt(6) = addt(7);
-        %     % flag
-        %     addt(8) = addt(9);
-        % 
-        %     %x*
-        %     addt(10) = addt(11);
-        % 
-        %     %flag2
-        %     addt(12) = addt(13);
-        %     %addt(13) = temp;
-        % %elseif addt(3) == 0
-        %  %   addt(3) = 
-        % %else
-
-        % end
 
         [uct,uout,dxdt_c] = LongControlOut(t,x,y_way,addt,bounds,AC);
         dxdt = LonDynNoLin(t,x,uct,AC);
 
-        % addt(1) = t; addt(4) = uout(4); addt(5) = uout(2); 
         dxdt = [dxdt(:);dxdt_c(:)];
-        % if addt(8) ~= 0 && dxdt(7) == 0
-        %     addt(10) = addt(10) + addt(6);
-        % end
-        % % 
-        % addt(8) = dxdt(7); addt(6) = uout(2); addt(12) = uout(1);
-        % if flg
-        %     addt(6) = addt(7);
-        %     addt(9) = addt(8);
-        %     addt(11) = addt(10);
-        %     addt(13) = addt(12);
-        % 
-        % end
 
-
-
-        %x_add = storefun(addt);
         out_step = out_step();
         out_step = storefun([out_step;[t,uout(:)',uct(:)',addt(1),addt(2)]]); % CREARE UN VETTORE DI OUTPUT DA SALVARE
-        % GESTIRE OUTPUT
-        %dxdt(7) = 1; % DEBUG
+
     end
 
     % event function: stops the integration when a waypoint is reached
@@ -121,8 +80,8 @@ function main()
         %around 0 error.
 
         y = LongDynNoLin_Out(x);
-        err = y_way(:) - y(:); tol = [0.5;250];
-        dst = ( err(1)/tol(1) )^2 + ( err(3)/tol(1) )^2 - 1; % The point must be inside an ellipse in the h-IAS plane
+        err = y_way(:) - y(:); 
+        dst = ( 20*err(1)/bounds(1) )^2 + ( 15*err(3)/bounds(2) )^2 - 1; % The point must be inside an ellipse in the h-IAS plane
 
         position = dst;         % When stop = 0 the integration stops
         isterminal = 1;         % Halt integration
@@ -286,14 +245,14 @@ function main()
             out_step = storefun(nan(1,10));     % ID,Vc,hdotc,Kh,Vd,CL,T,x*,x*@dt<0
             %x_way = [ 222.1,90,120;0,0,0;7625,1300,4300]; % Vias [kts] h [ft] hdot [ft/min]
             %x_way = [130,100;0,0;4000,3000;15400,15400];
-            x_way = [130,126;0,0;4000,3000;15400,15400];
-            Tfin = 500;                                          % Final time
+            x_way = [120,126,125;0,0,0;3000,4000,4500;15400,15400,15400];
+            Tfin = 1600;                                          % Final time
             te = 0;                                              % Starting time
             ye = [x_way(:,1);0;0;0];                             % Initial condition
             [~,~,~,ye(5:6)] = AC.LongLinSys(x_way(:,1),x_way(4,1));
             
 
-            tres = []; xres = [];                                % Storage vectors
+            tres = []; xres = []; x_aux_res = [];                % Storage vectors
             options.OutputFcn = @myout;                          % Set output function TODOOOO CHANGE FUN
             nway = length( x_way(1,:) );
             store_way = nan(nway,11); store_way(:,4:7) = x_way';
@@ -309,12 +268,14 @@ function main()
                 options.Events = wayevent;                      % Updates events function with new waypoint
                 [t,x,te,ye,ie] = ode113( @(t,x)LongDynNLCon( t,x,AC,y_way,bounds ),...
                     [te,Tfin],ye,options );
-                tres = [tres;t]; xres = [xres;x];               % Saves the ith waypoint results
+                
+                tres = [tres;t(1:end-1,:)]; xres = [xres;x(1:end-1,:)];               % Saves the ith waypoint results
                 if isempty(te)
                     te = Tfin;
                 end
                 store_way(iway,1:3) = [te,bounds(:)'];
             end
+            tres = [tres;t(end,:)]; xres = [xres;x(end,:)];
             x_aux = out_store();
             x_debug = out_step();
             plot_results(AC,CHS,tres,xres,x_aux,x_debug...

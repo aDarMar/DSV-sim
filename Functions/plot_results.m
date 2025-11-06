@@ -78,7 +78,7 @@ function [fig,ax] = plotfigs(AC,t,x,x_aux,x_debug)
     % State Variables
     i = 2;  fig(i) = figure('Name','1');
     fig(i) = figure('Name','State Variables');
-    nCase = 5; TIT = {'V','\gamma_a','h','m','I_c'};
+    nCase = 6; TIT = {'V','\gamma_a','h','m','I_c','I_T'};
     for j = 1:nCase
         ax(i,j) = subplot(nCase,1,j,'Parent',fig(i));
         hold(ax(i,j),'on'); title(ax(i,j),TIT{j});
