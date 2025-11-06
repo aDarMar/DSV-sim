@@ -126,8 +126,10 @@ classdef ACclass
             Tmax = 12000; % N
             if nargin == 3
                 T = Treq;
-                if Treq > Tmax
+                if Treq > Tmax 
                     T = Tmax;
+                elseif Treq < Tmax*0.5
+                    T = Tmax*0.5; % Limits to idle
                 end
             else
                 if Treq > 1 || Treq < 1

@@ -108,7 +108,7 @@ function main()
     
     lam_c = nan(5,3); % Roots of controlled system in ref cond
     fig_rl = figure('Name','Eigenvalues out of reference condition');
-    wn = [2;0.5;0.5]; zita = [0.9;0.7;0.7]; p = [0,nan;-0.05,nan;-0.1,-0.3];   % Sought modal caracteristics
+    wn = [1;0.5;0.5]; zita = [0.7;0.7;0.7]; p = [0,nan;-0.05,nan;-0.1,-0.3];   % Sought modal caracteristics
     CTR = {'CLcHd','CLcV','CLTcVh'}; 
     TIT = {'CL control of hdot','CL control of V','CL and T control of V,hdot'};
     nctrnd = length(wn); Kp = zeros(2,4,nctrnd); Kb = Kp; Ki = Kp;              % Initializing Gain matrices

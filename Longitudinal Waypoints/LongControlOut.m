@@ -10,7 +10,7 @@ function [u,u_out,dxdt] = LongControlOut(t,x,y_way,x_add,bounds,AC)
     dxdt = zeros(3,1);                  % dxdt for CL_i,T_i,Vd
     err = y_way(:) - y(:);              % Error definition
     u_out = nan(1,5);                   % Initialize output vector
-    u_out(5) = y_way(1);
+    u_out(5) = nan;     %     y_way(1);
     u_out(1) = ZoneIdf(err,bounds);     % Identifies the zone in which the aircraft is                 Flag vector [ slow,fast,Low,High,lowenergy]
     u = zeros(2,1);                     % Force Vector [CL,T]
     switch u_out(1)
@@ -20,8 +20,12 @@ function [u,u_out,dxdt] = LongControlOut(t,x,y_way,x_add,bounds,AC)
         % starting value for Vd in speed only controlled regions
             [u(1),dxdt(1),u_out(4),u_out(3) ] = ...
                 CLcontrol('h',t,x,y,err,x_add,AC,3,nan);             % CL control of hdot
-            [u(2),dxdt(2),u_out(2) ] = Tcontrol(AC,3,x,y,y_way,'lev');    % Thrust control of IAS
-            u_out(2) = y(1);                                        % Vd is not defined so it saved as Vc
+            [u(2),dxdt(2),u_out(2),dxdt(3) ] = Tcontrol(AC,3,x,y,y_way,'lev',x_add);    % Thrust control of IAS
+            if dxdt(3) == 0
+                u_out(2) = y(1);
+            else
+                u_out(2) = x_add(2);                                 % Vd is not defined so it saved as Vc
+            end
             u_out(5) = y_way(1);
         case 2
             % Accelerating Flight
@@ -80,7 +84,7 @@ function [u,u_out,dxdt] = LongControlOut(t,x,y_way,x_add,bounds,AC)
             [u(1),dxdt(1),u_out(4),u_out(3) ] = ...                 % CL control of hdot
                 CLcontrol('hER',t,x,y,err,x_add,AC,1,1,ER1,y_way); 
             dxdt(2) = 0;
-            u(2) = AC.Thrust_Law(1,x(3),'idl');
+            u(2) = AC.Thrust_Law(1,x(3),'ipt');
             u_out(2) = y(1);                                            % Vd is not defined and it is equal to V
 
         case 4
@@ -200,7 +204,7 @@ function [uCL,dxdt,Kh,comm] = CLcontrol...
     uCL = AC.Aerodynamic_Mod('t',x(3),y(2),uCL); % Checks if the aircraft can attain the required CL
 end
 
-function [uT,dxdt,Vc] = Tcontrol(AC,k,x,y,y_way,flg,x_add)
+function [uT,dxdt,Vc,comm] = Tcontrol(AC,k,x,y,y_way,flg,x_add)
 %TCONTROL: function that returns the thrust used to control speed (IAS)
 %   INPUT
 %   - AC: ACClass aircraft object
@@ -214,11 +218,13 @@ function [uT,dxdt,Vc] = Tcontrol(AC,k,x,y,y_way,flg,x_add)
 %   - dxdt: integral thrust controller
 %   - Vc: commanded speed [IAS]
 % UNTESTED
-switch flg
-    case 'climb' % TEMPORANEO per ora non viene mai chiamato 
-        Vc = V_des(y_way(1)-y(1),x_add);
-    otherwise
+if y_way(1)-y(1) > 5
+    %case 'climb' % TEMPORANEO per ora non viene mai chiamato 
+        comm = V_des(y_way(1)-y(1)); % TEST: riduciamo la forza della risposta
+        Vc = x(7) + x_add(2) - x_add(4);
+else
         Vc = y_way(1);
+        comm = 0;
 end
     uT = AC.Kp(2,:,k)*[Vc-y(1);0;0;0] - AC.Kb(2,:,k)*[y(1);0;0;0] + x(6);     % Calculates the required thrust to attain the Vc
     dxdt = AC.Ki(2,:,k)*[Vc-y(1);0;0;0];
@@ -245,7 +251,7 @@ function [hdotc,Kh] = hdot_des(y,err,x_add,Kh)
                     err(3) = 1;
                 end
                 Kh = y(4)/err(3);               % Temporary Khdot
-            elseif err(3) < 70                  % 70 ft tolerance
+            elseif abs(err(3)) < 70                  % 70 ft tolerance
                 Kh = 7;                         % [1/min]
             else
                 Kh = x_add(5);                  % In this case Kh is the Kh calculated at the beginning of teh transition region

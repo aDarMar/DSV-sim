@@ -251,7 +251,7 @@ function main()
             out_step = storefun(nan(1,10));     % ID,Vc,hdotc,Kh,Vd,CL,T,x*,x*@dt<0
             %x_way = [ 222.1,90,120;0,0,0;7625,1300,4300]; % Vias [kts] h [ft] hdot [ft/min]
             %x_way = [130,100;0,0;4000,3000;15400,15400];
-            tstt = 2;
+            tstt = 4;
             switch tstt
                 case 1
                     % Climb from zone 6 to zone 7 and then climb again
@@ -262,6 +262,15 @@ function main()
                     % Accelerate from region 2 to region 7
                     x_way = [120,130,110;0.0,0,0;3000,3000,3000;15400,15400,15400];
                     Tfin = 1600;
+                case 3
+                    % Decelerate and descend from region 25
+                    x_way = [110,130,110;0.0,0,0;4000,3000,4000;15400,15400,15400];
+                    Tfin = 1600;
+                case 4
+                    % Decelerate and descend from region 25
+                    x_way = [110,130,110;0.0,0,0;3000,4000,3000;15400,15400,15400];
+                    Tfin = 1600;
+                    %x_way = x_way(:,1:2);
             end
                                                                  % Final time
             te = 0;                                              % Starting time

@@ -54,9 +54,9 @@ function [fig,ax] = plotfigs(AC,t,x,x_aux,x_debug)
     y = LongDynNoLin_Out(x'); y = y';                        % output vector
     fig(i) = figure('Name','Output and Commanded Variables');
     % fig 1: hdot,V,CL,T
-    plotvec = [y(:,1),y(:,4),x_aux(:,6:7)];         % Vector used to plot results [VIAS,hdot,CL,T]
-    plotvec_aux = [x_aux(:,5),x_aux(:,3)];          % [Vc,hdotc,CLc,Tc]
-    nCase = length(plotvec(1,:));               % Number of subplots
+    plotvec = [y(:,1),y(:,4),x_aux(:,6:7)];             % Vector used to plot results [VIAS,hdot,CL,T]
+    plotvec_aux = [x_aux(:,5),x_aux(:,3)];              % [Vc,hdotc,CLc,Tc]
+    nCase = length(plotvec(1,:));                       % Number of subplots
     TIT = {'Actual vs Commanded IAS','Actual vs Commanded hdot','CL','T'};
     for j = 1:nCase
         ax(i,j) = subplot(nCase,1,j,'Parent',fig(i));
@@ -150,9 +150,10 @@ function [fig,ax] = plotfigs(AC,t,x,x_aux,x_debug)
     % IDs e Temp
     i = 4; j = 1;
     fig(i) = figure('Name','Vd');
-    plotvec = [x_aux(:,1),x(:,7),x(:,7)*nan,x_aux(:,5)];    %  [ID,x7,x*,Vd] [x_debug(:,9:10),x_debug(:,3),x_debug(:,6)];      % Vector used to plot results [VIAS,hdot,CL,T,Vc,hdotc]
-    plotvec_aux = [x_aux(:,1)*nan,x(:,7)*nan,x(:,7)*nan ,x_aux(:,2)]; % [ no,no,no,VIAS]
-    nCase = length(plotvec(1,:)); TIT = {'ID','x_7','x^*','Vd - Vc'};
+    plotvec = [x_aux(:,1),x(:,7),x(:,7)*nan,x_aux(:,5),x_aux(:,4)];    %  [ID,x7,x*,Vd] [x_debug(:,9:10),x_debug(:,3),x_debug(:,6)];      % Vector used to plot results [VIAS,hdot,CL,T,Vc,hdotc]
+    plotvec_aux = [x_aux(:,1)*nan,x(:,7)*nan,x(:,7)*nan ,x_aux(:,2)...
+        ,x_aux(:,2)*nan]; % [ no,no,no,VIAS]
+    nCase = length(plotvec(1,:)); TIT = {'ID','x_7','x^*','Vd - Vc','K_h'};
     for j = 1:nCase
         ax(i,j) = subplot(nCase,1,j,'Parent',fig(i));
         hold(ax(i,j),'on'); title(ax(i,j),TIT{j});
@@ -201,6 +202,11 @@ function [fig,ax] = IAShplot(AC,t,x,x_aux,x_debug,store_way)
             end
             yac = y( idxs ,: ); Vmax = max( abs(yac(:,1)) ); hmax = max( abs(yac(:,3)) );
             errs = store_way(ip,8:11)' - yac'; errs = errs';
+            errs(:,1) = x_aux(idxs,5) - yac(:,1); 
+            errs(:,4) = x_aux(idxs,3) - yac(:,4);
+
+            
+
             Vmax = max( abs(errs(:,1)) ); hmax = max( abs(errs(:,3)) );
             % Grid plotting
             plot( ax(ip),[-Vmax,Vmax],[1,1]*store_way(ip,3)  )
@@ -221,7 +227,8 @@ function [fig,ax] = IAShplot(AC,t,x,x_aux,x_debug,store_way)
 
             legend(axS(3),{'Speed','h_d'})
 
-            CL1 = []; CL2 = []; CL3 = []; CL4 = [];
+            CL1 = t(idxs)*nan; CL2 = t(idxs)*nan; 
+            CL3 = t(idxs)*nan; CL4 = t(idxs)*nan;
             T1 = t(idxs)*nan; T3 = t(idxs)*nan;
             for kk = 1:length(yac(:,1))
                 u = 1; T1(kk) = AC.Kp(2,1,u)*errs(kk,1)*nan;
@@ -255,7 +262,7 @@ function [fig,ax] = IAShplot(AC,t,x,x_aux,x_debug,store_way)
             plot( axS(1),t(idxs),CL2,'-.b')
             plot( axS(1),t(idxs),CL3,':b','LineWidth',0.5)
             plot( axS(1),t(idxs),CL4,'-.g','LineWidth',0.5)
-            legend(axS(1),{'C_L','I_c','Kp_c','Kp_k','Kb_c','Kb_h'})
+            legend(axS(1),{'C_L','I_c','Kp_c','Kp_h','Kb_c','Kb_h'})
             
             plot( axS(2),t(idxs),x_aux(idxs,7),'r','LineWidth',1)
             plot( axS(2),t(idxs),x(idxs,6),'--m','LineWidth',0.75)
