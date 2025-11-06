@@ -134,19 +134,25 @@ function main()
             % Initialization (apparently useless).
                 param = -2;
                 % Initialize the addt variables
-                addt = x_add();        % x_add = [ID,VIAS,dVd/dt,x(7),hdot]
-                [~,uout,dxdt] = LongControlOut(t(1),x,y_way,addt,bounds,AC);
-                addt(1) = uout(1);
-                addt(2) = uout(2); addt(3) = dxdt(3);
-                addt(4) = x(7);  addt(5) = uout(4);     % Kh
-                x_add =  storefun(addt);
+                
+                if iway == 2
+                    % Executes this code only if it is teh first waypoint,
+                    % otherwise it takes the values from previous
+                    % integration
+                    addt = x_add();        % x_add = [ID,VIAS,dVd/dt,x(7),hdot]
+                    [~,uout,dxdt] = LongControlOut(t(1),x,y_way,addt,bounds,AC);
+                    addt(1) = uout(1);
+                    addt(2) = uout(2); addt(3) = dxdt(3);
+                    addt(4) = x(7);  addt(5) = uout(4);     % Kh
+                    x_add =  storefun(addt);
+                end
             case "done"
                 % Nothing to do.
             otherwise
             % Main code to update param
                 nt = length(t);
                 store_temp = nan(nt,7); % [ID,VIAS,hdotc,Kc,Vd,CL,T]
-                store = out_store(); addt = x_add();        % x_add = [VIAS,dVd/dt,x(7),hdot]
+                store = out_store(); addt = x_add();        % x_add = [ID,VIAS,dVd/dt,x(7),Kh]
                 for it = 1 :nt
                     [uct,uout,dxdt] = LongControlOut(t,x,y_way,addt,bounds,AC);
                     %store_temp(it,1) = t(it);
@@ -245,10 +251,23 @@ function main()
             out_step = storefun(nan(1,10));     % ID,Vc,hdotc,Kh,Vd,CL,T,x*,x*@dt<0
             %x_way = [ 222.1,90,120;0,0,0;7625,1300,4300]; % Vias [kts] h [ft] hdot [ft/min]
             %x_way = [130,100;0,0;4000,3000;15400,15400];
-            x_way = [120,126,125;0,0,0;3000,4000,4500;15400,15400,15400];
-            Tfin = 1600;                                          % Final time
+            tstt = 2;
+            switch tstt
+                case 1
+                    % Climb from zone 6 to zone 7 and then climb again
+                    x_way = [120,126,125;0,0,0;3000,4000,4500;15400,15400,15400];
+                    Tfin = 1600;
+                    %x_way = x_way(:,1:2);
+                case 2
+                    % Accelerate from region 2 to region 7
+                    x_way = [120,130,110;0.0,0,0;3000,3000,3000;15400,15400,15400];
+                    Tfin = 1600;
+            end
+                                                                 % Final time
             te = 0;                                              % Starting time
             ye = [x_way(:,1);0;0;0];                             % Initial condition
+
+
             [~,~,~,ye(5:6)] = AC.LongLinSys(x_way(:,1),x_way(4,1));
             
 
@@ -256,16 +275,38 @@ function main()
             options.OutputFcn = @myout;                          % Set output function TODOOOO CHANGE FUN
             nway = length( x_way(1,:) );
             store_way = nan(nway,11); store_way(:,4:7) = x_way';
+
+            y_str = LongDynNoLin_Out( x_way(:,1) ); 
+            temp = [0,y_str(1),zeros(1,2),-1]; % [ID,VIAS,dVd/dt,x(7),Kh]
+            x_add = storefun( temp );%[te;te;0;-1;0;zeros(8,1)]);
+
             for iway = 2:nway
                 % event function: stops the integration when a waypoint is reached. It
                 % is defined in the loop so that is SHOULD update the terminator
                 % condition at each waypoint
-                y_str = LongDynNoLin_Out( x_way(:,iway-1) ); 
+                
                 y_way = LongDynNoLin_Out( x_way(:,iway) );      % Defining the y desired output. The bounds are in kts and ft
                 bounds = UpdateBounds( x_way(:,iway) );
-                x_add = storefun([0,y_str(1),zeros(1,2)]);%[te;te;0;-1;0;zeros(8,1)]);
+                
+                
+                if iway == 2
+                    [u,temp,~] = LongControlOut(te,[x_way(:,iway-1);0;0;0],y_way,temp,bounds,AC);
+                    if temp(1) ~= 7
+                        ye(6) = u(2);
+                    end
+                else
+                    % Assigns the initial value for thrust in It
+                    %AC.Thrust_Law(x(6),x(3))
+                    temp = out_store();
+                    ye(5) = temp(end,6); % CL last
+                    ye(6) = temp(end,7); % CL last
+                end
+                
+                
+                
                 wayevent =@(t,x)wayReachedEvent(t,x,y_way);     % Defining the termination event for the ith waypoint
                 options.Events = wayevent;                      % Updates events function with new waypoint
+                options.OutputFcn = @myout;
                 [t,x,te,ye,ie] = ode113( @(t,x)LongDynNLCon( t,x,AC,y_way,bounds ),...
                     [te,Tfin],ye,options );
                 

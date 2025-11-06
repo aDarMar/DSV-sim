@@ -239,6 +239,11 @@ function [hdotc,Kh] = hdot_des(y,err,x_add,Kh)
         if isnan(Kh)                            % Kh is not given as input so it must be evaluated
             if x_add(5) == -1                   % Kh at previous tiem step is -1
                 % It is entering from a uncontrolled RoC
+                if err(3) == 0
+                    % This check avoids to have a division by zero
+                    % introducing a 1ft error (30 cm)
+                    err(3) = 1;
+                end
                 Kh = y(4)/err(3);               % Temporary Khdot
             elseif err(3) < 70                  % 70 ft tolerance
                 Kh = 7;                         % [1/min]

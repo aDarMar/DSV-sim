@@ -65,6 +65,24 @@ function [fig,ax] = plotfigs(AC,t,x,x_aux,x_debug)
         if j < 3
             plot( ax(i,j),t,plotvec_aux(:,j),'--r' );
         end
+        % if j == 3
+        %     plot( ax(i,j),t,x(:,5),'--r')
+        %     err = x_aux(:,5) - y(:,1);
+        %     for kk = 1:length(t)
+        %         CL1(kk) = AC.Kp(1,1,u)*err(kk,1); % CL
+        %         CL2(kk) = AC.Kp(1,4,u)*err(kk,4); 
+        %         CL3(kk) = -AC.Kb(1,1,u)*y(kk,1);
+        %         CL4(kk) = -AC.Kb(1,4,u)*y(kk,4); 
+        % 
+        % 
+        %     end
+        %     plot( ax(i,j),t,x(:,5),'--m')
+        %     plot( ax(i,j),t,CL1,'--b')
+        %     plot( ax(i,j),t,CL2,'-.b')
+        %     plot( ax(i,j),t,CL3,':b')
+        %     plot( ax(i,j),t,CL4,'-b')
+        %     legend(ax(i,j),{'C_L','I_c','Kp_c','Kp_k','Kb_c','Kb_h'})
+        % end
     end
     % for j = 3:nCase
     %     ax(i,j) = subplot(nCase,1,j,'Parent',fig(i));
@@ -165,16 +183,21 @@ function [fig,ax] = IAShplot(AC,t,x,x_aux,x_debug,store_way)
 
     n_way = length( store_way(:,1));
     nfig = ceil(n_way/nfigpp);
-    ip = 1;
+    fig(nfig+1) = figure('Name','Responses');
+    %axS = axes('Parent',fig(nfig+1)); hold(axS,'on');
+    axS(1) = subplot(3,1,1,'Parent',fig(nfig+1)); hold(axS(1),'on');
+    axS(2) = subplot(3,1,2,'Parent',fig(nfig+1)); hold(axS(2),'on');
+    axS(3) = subplot(3,1,3,'Parent',fig(nfig+1)); hold(axS(3),'on');
+    ip = 1; lst = 0;
     for ifi = 1:nfig
         fig(ifi) = figure('Name',['h-V error plane - ',num2str(ifi)]);
         while ip-nfigpp*(ifi-1) < nfigpp+1 && ip < n_way + 1
             idf = ip-nfigpp*(ifi-1);
             ax(ip) = subplot(nrow,ncol,idf,'Parent',fig(ifi)); hold(ax(ip),'on')
             if ip > 1
-                idxs = all( t>store_way(ip-1,1), t<store_way(ip,1) );
+                idxs =  all([t>store_way(ip-1,1)  , t<store_way(ip,1)],2) ;
             else
-                idxs = t<store_way(1,1) ;
+                idxs = ~(t>store_way(1,1)) ;
             end
             yac = y( idxs ,: ); Vmax = max( abs(yac(:,1)) ); hmax = max( abs(yac(:,3)) );
             errs = store_way(ip,8:11)' - yac'; errs = errs';
@@ -189,10 +212,56 @@ function [fig,ax] = IAShplot(AC,t,x,x_aux,x_debug,store_way)
             plot( ax(ip),-errs(1,1),-errs(1,3),'or' );% Red dot to indicate starting point
             plot( ax(ip),-errs(:,1),-errs(:,3) );
             
-
+            plot(ax(ip),0,0,'MarkerSize',7,'Marker','diamond',LineWidth=0.7)
             teta = atan2( errs(:,3),errs(:,1) );
             fct =  (errs(:,1)/0.5).^2 + (errs(:,3)/250 ).^2 -1   ;
-            plot( t(idxs),fct )
+            
+            yyaxis(axS(3),'left'); plot( axS(3),t(idxs),errs(:,1),'r')
+            yyaxis(axS(3),'right'); plot( axS(3),t(idxs),errs(:,3),'g' );
+
+            legend(axS(3),{'Speed','h_d'})
+
+            CL1 = []; CL2 = []; CL3 = []; CL4 = [];
+            T1 = t(idxs)*nan; T3 = t(idxs)*nan;
+            for kk = 1:length(yac(:,1))
+                u = 1; T1(kk) = AC.Kp(2,1,u)*errs(kk,1)*nan;
+                %T2(kk) = AC.Ki(2,1,u)*errs(kk,1)*nan;
+                T3(kk) = AC.Kb(2,1,u)*yac(kk,1)*nan;
+                switch x_aux(lst+kk,1)
+                    case 3
+                        u = 2;
+                    case 6
+                        u = 2;
+                    case 7
+                        u = 3;
+                        T1(kk) = AC.Kp(2,1,u)*errs(kk,1);
+                        %T2(kk) = AC.Ki(2,1,u)*errs(kk,1);
+                        T3(kk) = AC.Kb(2,1,u)*yac(kk,1);
+                    otherwise
+                        u = 1;
+
+                end
+                CL1(kk) = AC.Kp(1,1,u)*errs(kk,1); % CL
+                CL2(kk) = AC.Kp(1,4,u)*errs(kk,4);
+                CL3(kk) = -AC.Kb(1,1,u)*yac(kk,1);
+                CL4(kk) = -AC.Kb(1,4,u)*yac(kk,4);
+                
+                
+            end
+            lst = length(yac(:,1));
+            plot( axS(1),t(idxs),x_aux(idxs,6),'r','LineWidth',1)
+            plot( axS(1),t(idxs),x(idxs,5),'--m','LineWidth',0.5)
+            plot( axS(1),t(idxs),CL1,'--g','LineWidth',0.5)
+            plot( axS(1),t(idxs),CL2,'-.b')
+            plot( axS(1),t(idxs),CL3,':b','LineWidth',0.5)
+            plot( axS(1),t(idxs),CL4,'-.g','LineWidth',0.5)
+            legend(axS(1),{'C_L','I_c','Kp_c','Kp_k','Kb_c','Kb_h'})
+            
+            plot( axS(2),t(idxs),x_aux(idxs,7),'r','LineWidth',1)
+            plot( axS(2),t(idxs),x(idxs,6),'--m','LineWidth',0.75)
+            plot( axS(2),t(idxs),T1,'--g','LineWidth',0.75)
+            plot( axS(2),t(idxs),T3,':b','LineWidth',0.75)
+            legend(axS(2),{'T','I_T','Kp_V','Kb_V'})
 
             ip = ip+1;
         end
