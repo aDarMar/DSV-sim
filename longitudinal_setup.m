@@ -29,9 +29,7 @@ function main()
 
     %addata = [T0,T0]; %[wayReach;iway;Khdot,tlast]
     %x_add = storefun(addata);
-    addata = nan(1,6);         % ID,Vc,hdotc,Kh,CL,T
-    out_store = storefun([nan,addata]); % CONTROLLARE SE FUNZIONANO E INIZIALIZZARE
-    out_step = storefun([nan,addata]);
+    
     %% ODE RHS definition
     
     function dxdt = LongDynNLConSimp(t,x,AC,y_way)
@@ -62,44 +60,73 @@ function main()
     %LongDynNL_cont Summary of this function goes here
     %   x: state vector + auxiliary variables [Va,ga,h,Icl,It]
     %global wayReach iWay
+        % flg = false;
         addt = x_add();                                 % [t(n-1),t@dt<0,dt,Kh@t(n-1),Vd@t(n-1)]
-        addt(3) = t - addt(1);                          % dt used in the controller
-        if addt(3) < 0                                  % The integration has "gone back" in time
-            addt(1) = addt(2);                          
-            addt(2) = t;
-            addt(3) = t - addt(1);
+        % addt(3) = t - addt(1);                          % dt used in the controller
+        % if addt(3) < 0                                  % The integration has "gone back" in time
+        %     flg = true;
+        %     addt(1) = addt(2);                          
+        %     addt(2) = t;
+        %     addt(3) = t - addt(1);
+        % 
+        %     % Vd
+        %     %temp = addt(6);
+        %     addt(6) = addt(7);
+        %     % flag
+        %     addt(8) = addt(9);
+        % 
+        %     %x*
+        %     addt(10) = addt(11);
+        % 
+        %     %flag2
+        %     addt(12) = addt(13);
+        %     %addt(13) = temp;
+        % %elseif addt(3) == 0
+        %  %   addt(3) = 
+        % %else
 
-            % DEBUG
-            addt(6) = addt(7);
-            addt(7) = x(1);
-        %elseif addt(3) == 0
-         %   addt(3) = 
-        %else
-
-        end
+        % end
 
         [uct,uout,dxdt_c] = LongControlOut(t,x,y_way,addt,bounds,AC);
         dxdt = LonDynNoLin(t,x,uct,AC);
-        addt(1) = t; addt(4) = uout(4); addt(5) = uout(2); addt(6) = x(1);
-        x_add = storefun(addt);
-        out_step = out_step();
-        out_step = storefun([out_step;[t,uout(:)',uct(:)']]); % CREARE UN VETTORE DI OUTPUT DA SALVARE
+
+        % addt(1) = t; addt(4) = uout(4); addt(5) = uout(2); 
         dxdt = [dxdt(:);dxdt_c(:)];
+        % if addt(8) ~= 0 && dxdt(7) == 0
+        %     addt(10) = addt(10) + addt(6);
+        % end
+        % % 
+        % addt(8) = dxdt(7); addt(6) = uout(2); addt(12) = uout(1);
+        % if flg
+        %     addt(6) = addt(7);
+        %     addt(9) = addt(8);
+        %     addt(11) = addt(10);
+        %     addt(13) = addt(12);
+        % 
+        % end
+
+
+
+        %x_add = storefun(addt);
+        out_step = out_step();
+        out_step = storefun([out_step;[t,uout(:)',uct(:)',addt(1),addt(2)]]); % CREARE UN VETTORE DI OUTPUT DA SALVARE
+        % GESTIRE OUTPUT
+        %dxdt(7) = 1; % DEBUG
     end
 
     % event function: stops the integration when a waypoint is reached
     function [position,isterminal,direction] = wayReachedEvent(t,x,y_way)
-        %stop = 10;
+        %WAUREACNEDEVENT: function that stops the integration when the
+        %error is inside an ellypse in the h-IAS error plane centered
+        %around 0 error.
+
         y = LongDynNoLin_Out(x);
         err = y_way(:) - y(:); tol = [0.5;250];
-        %err = 1 - y(:)./y_way(:); % Relative error
-        %err = err(isnan(err)); % Removes nan like commanded values equal to 0
-        % if norm(err,'inf') < tol
-        %     stop = 0;   % stop is set equal to 0 if the maximum error is within tolerance
-        % end
-        position = [err(1);err(3)] - tol;    % When stop = 0 the integration stops
-        isterminal = [1;1];     % Halt integration
-        direction = [];      % Zero can be approached from either directions
+        dst = ( err(1)/tol(1) )^2 + ( err(3)/tol(1) )^2 - 1; % The point must be inside an ellipse in the h-IAS plane
+
+        position = dst;         % When stop = 0 the integration stops
+        isterminal = 1;         % Halt integration
+        direction = -1;         % The fnction must be decreasing
     end
     
     % output function: it is called by the ode solver only after a
@@ -147,18 +174,41 @@ function main()
             case "init"
             % Initialization (apparently useless).
                 param = -2;
+                % Initialize the addt variables
+                addt = x_add();        % x_add = [ID,VIAS,dVd/dt,x(7),hdot]
+                [~,uout,dxdt] = LongControlOut(t(1),x,y_way,addt,bounds,AC);
+                addt(1) = uout(1);
+                addt(2) = uout(2); addt(3) = dxdt(3);
+                addt(4) = x(7);  addt(5) = uout(4);     % Kh
+                x_add =  storefun(addt);
             case "done"
                 % Nothing to do.
             otherwise
             % Main code to update param
                 nt = length(t);
-                store_temp = nan(nt,7); % [t,ID,Vc,hdotc,Kc,CL,T]
-                store = out_store(); addt = x_add();
+                store_temp = nan(nt,7); % [ID,VIAS,hdotc,Kc,Vd,CL,T]
+                store = out_store(); addt = x_add();        % x_add = [VIAS,dVd/dt,x(7),hdot]
                 for it = 1 :nt
-                    [uct,uout,~] = LongControlOut(t,x,y_way,addt,bounds,AC);
-                    store_temp(it,1) = t(it);
-                    store_temp(it,2:5) = uout(:)'; store_temp(it,6:7) = uct(:)';
+                    [uct,uout,dxdt] = LongControlOut(t,x,y_way,addt,bounds,AC);
+                    %store_temp(it,1) = t(it);
+                    l1 = length(uout(:)'); l2 = length(uct(:)');
+                    store_temp(it,1:l1) = uout(:)'; store_temp(it,1+l1:l1+l2) = uct(:)';
+                    
                 end
+                
+                if uout(1) ~= addt(1) || ( uout(1) ~= 3 && uout(1) ~= 6 )
+                % This means that at the previous time step we were in zone
+                % 3 or 6 and now we are still in the same zone
+                    addt(2) = uout(2); % Update with current IAS
+                end
+                if addt(3) ~= 0 && dxdt(3) == 0
+                    addt(4) = x(7);% Storing the value of Vd when it becomes constant
+                end
+                addt(1) = uout(1);
+                addt(3) = dxdt(3);
+                addt(5) = uout(4);% Kh
+                x_add = storefun(addt); 
+
                 out_store = storefun([store;store_temp]); 
                 %out = out_step(); % Retrives the successfull output vector up to now
                 %outup = out_temp();% Retrives the current timestep output
@@ -177,7 +227,9 @@ function main()
            CTR = 'Vc'; % Cambia qua e la variabile TEST in LongControlOutSimple
            
            Tfin = 40;
-           
+           addata = nan(1,6);         % ID,Vc,hdotc,Kh,CL,T
+           out_store = storefun([nan,addata]); % CONTROLLARE SE FUNZIONANO E INIZIALIZZARE
+           out_step = storefun([nan,addata]);
            
            load('Data\test_conditions.mat','xref','x0');
            options.OutputFcn = @myoutSimple;
@@ -229,28 +281,38 @@ function main()
                 plot_results(AC,CHS,t,x,x_aux,x_debug);
             end
         case 'waypoint'
-            
+            addata = nan(1,6);         
+            out_store = storefun(nan(1,7)); % CONTROLLARE SE FUNZIONANO E INIZIALIZZARE
+            out_step = storefun(nan(1,10));     % ID,Vc,hdotc,Kh,Vd,CL,T,x*,x*@dt<0
             %x_way = [ 222.1,90,120;0,0,0;7625,1300,4300]; % Vias [kts] h [ft] hdot [ft/min]
-            x_way = [130,100;0,0;4000,3000;15400,15400];
-            Tfin = 5000;                                         % Final time
+            %x_way = [130,100;0,0;4000,3000;15400,15400];
+            x_way = [130,126;0,0;4000,3000;15400,15400];
+            Tfin = 500;                                          % Final time
             te = 0;                                              % Starting time
-            ye = [x_way(:,1);0;0];                               % Initial condition
+            ye = [x_way(:,1);0;0;0];                             % Initial condition
+            [~,~,~,ye(5:6)] = AC.LongLinSys(x_way(:,1),x_way(4,1));
+            
+
             tres = []; xres = [];                                % Storage vectors
-            options.OutputFcn = @myout;                             % Set output function TODOOOO CHANGE FUN
+            options.OutputFcn = @myout;                          % Set output function TODOOOO CHANGE FUN
             nway = length( x_way(1,:) );
             store_way = nan(nway,11); store_way(:,4:7) = x_way';
             for iway = 2:nway
                 % event function: stops the integration when a waypoint is reached. It
                 % is defined in the loop so that is SHOULD update the terminator
                 % condition at each waypoint
-                x_add = storefun([te;te;0;-1;0;ye(1);ye(1)]);
+                y_str = LongDynNoLin_Out( x_way(:,iway-1) ); 
                 y_way = LongDynNoLin_Out( x_way(:,iway) );      % Defining the y desired output. The bounds are in kts and ft
                 bounds = UpdateBounds( x_way(:,iway) );
+                x_add = storefun([0,y_str(1),zeros(1,2)]);%[te;te;0;-1;0;zeros(8,1)]);
                 wayevent =@(t,x)wayReachedEvent(t,x,y_way);     % Defining the termination event for the ith waypoint
                 options.Events = wayevent;                      % Updates events function with new waypoint
                 [t,x,te,ye,ie] = ode113( @(t,x)LongDynNLCon( t,x,AC,y_way,bounds ),...
                     [te,Tfin],ye,options );
                 tres = [tres;t]; xres = [xres;x];               % Saves the ith waypoint results
+                if isempty(te)
+                    te = Tfin;
+                end
                 store_way(iway,1:3) = [te,bounds(:)'];
             end
             x_aux = out_store();

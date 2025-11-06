@@ -2,7 +2,7 @@ function plot_results(AC,flg,t,x,x_aux,x_debug,tl,xl,A,C,xref,store_way)
 %PLOT_RESULTS Function that plots the results of the integration
 %   INPUT
 %   x - longitudinal state vector [V,ga,h,m]
-%   x_aux - additional daata taken from ode's OutputFcn [t,ID,Vc,hdotc,Kc,CL,T]
+%   x_aux - additional daata taken from ode's OutputFcn [ID,Vc,hdotc,Kc,Vd,CL,T]
 %   tl,xl - solution vectors for the linear case
     switch flg
         case 'ctrl'
@@ -45,29 +45,36 @@ function plot_results(AC,flg,t,x,x_aux,x_debug,tl,xl,A,C,xref,store_way)
 end
 
 function [fig,ax] = plotfigs(AC,t,x,x_aux,x_debug)
+%
+%   INPUT
+%   - x_aux: [ID,VIAS,hdotc,Kc,Vd,CL,T]
+
     % Output Variables and Commanded Variables
     i = 1;                                          % figure index
     y = LongDynNoLin_Out(x'); y = y';                        % output vector
     fig(i) = figure('Name','Output and Commanded Variables');
     % fig 1: hdot,V,CL,T
-    plotvec = [y(:,1),y(:,4),x_aux(:,6:7),x_aux(:,3:4)];      % Vector used to plot results [VIAS,hdot,CL,T,Vc,hdotc]
-    nCase = length(plotvec(1,:)) - 2;               % Number of subplots
+    plotvec = [y(:,1),y(:,4),x_aux(:,6:7)];         % Vector used to plot results [VIAS,hdot,CL,T]
+    plotvec_aux = [x_aux(:,5),x_aux(:,3)];          % [Vc,hdotc,CLc,Tc]
+    nCase = length(plotvec(1,:));               % Number of subplots
     TIT = {'Actual vs Commanded IAS','Actual vs Commanded hdot','CL','T'};
-    for j = 1:2
+    for j = 1:nCase
         ax(i,j) = subplot(nCase,1,j,'Parent',fig(i));
         hold(ax(i,j),'on'); title(ax(i,j),TIT{j});
         plot( ax(i,j),t,plotvec(:,j) );
-        plot( ax(i,j),t,plotvec(:,nCase+j),'--r' );
-    end
-    for j = 3:nCase
-        ax(i,j) = subplot(nCase,1,j,'Parent',fig(i));
-        hold(ax(i,j),'on'); title(ax(i,j),TIT{j});
-        plot( ax(i,j),t,plotvec(:,j) );
-        if nargin > 4
-            plot( ax(i,j),x_debug(:,1),x_debug(:,3+j),'--m' );
+        if j < 3
+            plot( ax(i,j),t,plotvec_aux(:,j),'--r' );
         end
-
     end
+    % for j = 3:nCase
+    %     ax(i,j) = subplot(nCase,1,j,'Parent',fig(i));
+    %     hold(ax(i,j),'on'); title(ax(i,j),TIT{j});
+    %     plot( ax(i,j),t,plotvec(:,j) );
+    %     if nargin > 4
+    %         plot( ax(i,j),x_debug(:,1),x_debug(:,3+j),'--m' );
+    %     end
+
+    % end
     % State Variables
     i = 2;  fig(i) = figure('Name','1');
     fig(i) = figure('Name','State Variables');
@@ -122,6 +129,27 @@ function [fig,ax] = plotfigs(AC,t,x,x_aux,x_debug)
             'DisplayName', NM{k} );
     end
     legend(ax(i,j));
+    % IDs e Temp
+    i = 4; j = 1;
+    fig(i) = figure('Name','Vd');
+    plotvec = [x_aux(:,1),x(:,7),x(:,7)*nan,x_aux(:,5)];    %  [ID,x7,x*,Vd] [x_debug(:,9:10),x_debug(:,3),x_debug(:,6)];      % Vector used to plot results [VIAS,hdot,CL,T,Vc,hdotc]
+    plotvec_aux = [x_aux(:,1)*nan,x(:,7)*nan,x(:,7)*nan ,x_aux(:,2)]; % [ no,no,no,VIAS]
+    nCase = length(plotvec(1,:)); TIT = {'ID','x_7','x^*','Vd - Vc'};
+    for j = 1:nCase
+        ax(i,j) = subplot(nCase,1,j,'Parent',fig(i));
+        hold(ax(i,j),'on'); title(ax(i,j),TIT{j});
+        plot( ax(i,j),t,plotvec(:,j) );
+        plot( ax(i,j),t,plotvec_aux(:,j),'--r' );
+    end
+    
+    % for j = 1:nCase
+    %     ax(i,j+2) = subplot(nCase,1,j+2,'Parent',fig(i));
+    %     hold(ax(i,j+2),'on'); title(ax(i,j+2),TIT{j+2});
+    %     plot( ax(i,j+2),plotvec(:,1),plotvec(:,j) );
+    %     plot( ax(i,j+2),plotvec_aux(:,1),plotvec(:,j+1),'--b' );
+    %     j = j + 1;
+    % end
+
 end
 
 function [fig,ax] = IAShplot(AC,t,x,x_aux,x_debug,store_way)
@@ -160,8 +188,14 @@ function [fig,ax] = IAShplot(AC,t,x,x_aux,x_debug,store_way)
             % Path
             plot( ax(ip),-errs(1,1),-errs(1,3),'or' );% Red dot to indicate starting point
             plot( ax(ip),-errs(:,1),-errs(:,3) );
+            
+
+            teta = atan2( errs(:,3),errs(:,1) );
+            fct =  (errs(:,1)/0.5).^2 + (errs(:,3)/250 ).^2 -1   ;
+            plot( t(idxs),fct )
 
             ip = ip+1;
         end
     end
+
 end
