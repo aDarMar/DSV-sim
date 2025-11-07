@@ -1,4 +1,4 @@
-function [u,u_out,dxdt] = LongControlOut(t,x,y_way,x_add,bounds,AC)
+function [u,u_out,dxdt] = LongControlOut(t,x,y_way,x_add,bounds,AC,y)
 %LONGCONTROLOUT Summary of this function goes here
 %   INPUT
 %   - x_add: [ID,VIAS,dVd/dt,x(7),Kh] evaluated at previous successful iteration
@@ -6,7 +6,9 @@ function [u,u_out,dxdt] = LongControlOut(t,x,y_way,x_add,bounds,AC)
 %   OUTPUT
 %   - u_out: [ID,VIAS,hdotc,Kh,Vd]
     KHS = 1; FPMc = 500; ER1 = 2.3;     % Khdot 1 [1/s] RoD custom 500 fpm ER1 Energy ratio in Reg. 1
-    y = LongDynNoLin_Out(x(:));         % State output
+    if nargin < 7                       % Evaluate state output only if it is not given as input
+        y = LongDynNoLin_Out(x(:));     % State output
+    end
     dxdt = zeros(3,1);                  % dxdt for CL_i,T_i,Vd
     err = y_way(:) - y(:);              % Error definition
     u_out = nan(1,5);                   % Initialize output vector
@@ -181,7 +183,7 @@ function [uCL,dxdt,Kh,comm] = CLcontrol...
             M = V/a; Re = AC.ReCalc(x(3),M);
             D = AC.polar(M,Re,x(4)*9.81/(q*AC.Sw)); 
             D = D*q*AC.Sw; 
-            comm = (T - D)*x(1)/( x(4)*9.81*(1+hdotcust) )*60/0.305;
+            comm = (T - D)*x(1)/( x(4)*9.81*(1+hdotcust) )*60/0.305; % TODOOOOO usa D dello stato corrente e non di quello del waypoint
 
             dxdt = AC.Ki(1,:,k)*[0;0;0;comm-y(4)];
             uCL = AC.Kp(1,:,k)*( [0;0;0;comm-y(4)] ) - AC.Kb(1,:,k)*[0;0;0;0] + x(5);
