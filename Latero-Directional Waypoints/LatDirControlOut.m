@@ -1,25 +1,147 @@
-function [u,u_out,dxdt] = LatDirControlOut(t,x,y_way,x_add,bounds,AC)
+function [u,u_out] = LatDirControlOut(t,x,y_way,AC,GEO)
 %LATDIRCONTROLOUT Summary of this function goes here
 %   INPUT
-%   - x: [Va.ga,h,m,CL,T,Vd,Psi,Phi,p]
+%   - x: [Va.ga,h,m,CL,T,Vd,Psi,Phi,p,mu,lng]
 %   - y: [VIAS,M,h,hdot,phi,p,psi,Vg,psiG]
-%   - y_way: [VIAS,M,h,hdot,Kv,mu,lng]
+%   - y_way: [VIAS,M,h,hdot,PTf, --- ]
 
 %   - x_add: [ID,VIAS,dVd/dt,x(7),Kh] evaluated at previous successful iteration
 %   - bounds: [vbound,hbound,V/g] in SI units
 %   OUTPUT
-%   - u_out: [ID,VIAS,hdotc,Kh,Vd]
+%   - u: Roll moment [N*m]
 
-    u_out(1) = ZoneIdf(err,bounds);     % Identifies the zone in which the aircraft is                 Flag vector [ slow,fast,Low,High,lowenergy]
-    u = 0;                              % Force Vector [Roll]
+    %u_out(1) = ZoneIdf(err,bounds);     % Identifies the zone in which the aircraft is                 Flag vector [ slow,fast,Low,High,lowenergy]                                                                 % Force Vector [Roll]
 
-    Psic = wayRoute();
-    u = AC.Klat(:,:,k)*( [0;Psic]*-y(6:7) );
+    PhiC = wayRoute(x,y_way,dPsiw,k,GEO);
+
+    u = AC.lat(1)*PhiC;                 % Roll Moment
+    u_out = PhiC;
+end
+
+function PhiD = wayRoute(x,y_way,dPsiw,k,GEO)
+%   OUTPUT
+%   - PhiD: commanded roll angle [rad]
+% Decide teh kind of command to use
+    if y_way(5) == 1 || y_way(5) == 2
+        % TF and CF cases both follow a rhumb line
+        flg = 1;
+    elseif y_way(5) == 3
+        %% RF
+        flg = 2;
+    
+    else
+    
+    end
+    switch flg
+        case 1
+        %% Rhumb Line Tracking
+        % Gives the commanded heading to follow a Rhumb line. In this case a
+        % desired heading is calculated.
+        %   Psi_d = PsiGT_d - dPsi_w
+        %   where 
+        %   PsiGT_d = Kv - dPsi
+        % In this case y_way contains:
+        %   - y_way: [1:4,ID,Kv,mu(B),lng(B),mu(A),lng(A)]
+            dPsiw = y(9) - x(8);                                    % PsiGT - Psi
+            dR = rhumbLatDist(x,y_way,GEO);                         % distance from the desired rhumb line [m]
+            rt = AC.turnRAdius(x(1),x(9));                          % Radius of  curvature [m]
+            PsiD = IntercePsi(dR,rt);                               % dPsi [rad]
+            PsiD = y_way(6) - PsiD;                                 % PsiGT_d [rad]
+            PsiD = PsiD - dPsiw;                                    % Psi_d [rad]
+            % Checks if the aircraft should turn left or right
+            err = HeadCapture(x(8),PsiD);                           % Minimum Heading Error [rad]
+            % Converts the Heading error into bank angle error: firt check
+            % if the heading error is too big causing a too great bank
+            % angle. The theresold is set at 15°
+            if err > 0.2618                                         % Heading error is > 15°
+                PhiD = 0.5236;                                      % PhiD is set to 30°
+            else
+                PhiD = AC.lat(3)*err;                               % PhiD [rad] 
+            end
+        case 2
+        %% Circular Arch Tracking
+        % y_way[1:4,ID,rx,ry,rt,Psi(end),turn]
+            dR = circleLatDist(x,y_way,GEO);
+            PsiD = IntercePsi(dR,y_way(8));
+
+            PhiD = AC.Klat(3,k)*PsiD;
+    end
+end
+
+function dR = circleLatDist(x,y_way,GEO)
+% y_way[1:4,ID,rx,ry,rt,Psi(end),turn]
+% Calcolare vettoer posizione
+    Rc = GEO.LatLon2Vec(x(11),x(12),0);
+    dR = norm(Rc - y_way(6:7),2); % Distanbe between aircraft and circle center
+    dR = y_way(10)*(y_way(8) - dR); % istance from the circonference, positive if right. y_way(1)ì0) = 1 if right turn -1 if left
+% Trasformare vettore poizione in NED
+% Distanza Vettore-Centro
+
+    
+end
+
+
+function PsiD = IntercePsi(dR,rt)
+    PsiD = 0.5*pi*dR/rt; % PsiD_GT in [rad]
+    if abs(PsiD) > 0.25*pi
+        % Maximum interception sngle at 45deg
+        PsiD = 0.25*pi*dR/abs(dR);
+    end
+end
+
+function dR = rhumbLatDist(x,y_way,GEO)
+% RHUMBLATDIST: function that evaluates the distance from the current
+% position to the desired rhumb line. The distance is evaluated along a
+% second rhumb line that intersects the first and starts from the current
+% position.
+%   INPUT
+
+%   OUTPUT
+%       - dR: distance from teh desired rhumb lane along a rhumb lane that
+%       connects the aircraft and intersects the rhumb lane [m]
+
+    % Rhumb line from current position to waypoint
+    %[Rnu,m] = GEO.rhumbLine([x(11),y_way(6)],[x(12),y_way(7)]); % Rhumb line passing from the current position to the ending waypoint
+    
+    %Intersection between commanded rhumb line and rhumb line perpendicular to the first    
+    [lati,lngi] = rhxrh(x(11),x(12),y_way(6)-pi/2,...
+        y_way(7),y_way(8),y_way(6),'radians'); 
+    % Distance along the new rhumb lane between teh aircraft current
+    % position and the desired rhumb lane
+    [~,dR] = GEO.rhumbLine([x(11),lati],[x(12),lngi]);                         
+    
+    % R1 = [m*cos(Rnu),m*sin(Rnu)]; % Distance vector in Mercator plane
+    % % Test 1
+    % n1 = [sin(y_way(5)),-cos(y_way(5))]; % Normal to to the rhumb line vector in Mercator plane
+    % dR = R1*n1(:); % USARE MATLAB
+    % % Test 2: intersecting rhumb lines
+    % 
+    % %lati = lati*pi/180; lngi = lngi*pi/180; % deg -> rad
+    % [Rnu,m] = GEO.rhumbLine([x(11),lati],[x(12),lngi]); % Rhumb line passing from teh current position to the ending waypoint
+    % 
+    % [lattrk,lontrk] = track2("rh",y_way(6),y_way(7),y_way(8),y_way(9),GEO,'radians'); % Desired rhumb path
+    % geoplot(lattrk*180/pi,lontrk*180/pi,'r','LineWidth',1); hold on
+    % 
+    % [lattrk,lontrk] = track2("rh",x(11),x(12),y_way(6),y_way(7),GEO,'radians'); % Rhumb line from current pos to waypoint
+    % geoplot(lattrk*180/pi,lontrk*180/pi,'--b','LineWidth',1);
+    % 
+    % [lattrk,lontrk] = track2("rh",x(11),x(12),lati,lngi,GEO,'radians'); % Rhumb line from current pos to desired rhumb line
+    % geoplot(lattrk*180/pi,lontrk*180/pi,'--k','LineWidth',0.75);
+
 
 end
 
-function wayRoute()
-    % Rhumb Line Tracking
-    dR = rhumbLatDist();
+function err = HeadCapture(Psi,PsiD)
 
+    if PsiD - Psi > 0
+        eL = PsiD - Psi;
+        eR = eL - 2*pi;
+    else
+        eL = PsiD - Psi + 2*pi;
+        eR = PsiD - Psi;
+    end
+    err = eR;
+    if abs(eL) < abs(eR)
+        err = eL
+    end
 end

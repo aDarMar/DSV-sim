@@ -10,7 +10,7 @@ function y = CompleteDynNoLin_Out(x,Vw,gm)
 % Tested comparing TAS <-> IAS with IAS2TAS
     a = nan(2,1); P = a; y = nan( 9,length( x(1,:) ) );
     [~,a(1),P(1),~] = atmosisa( 0 );
-    if nargin < 2
+    if nargin < 3
             gm = 1.4;
     end
     
@@ -27,9 +27,9 @@ function y = CompleteDynNoLin_Out(x,Vw,gm)
         y(7,i) = x(9)*180/pi;                                           % Bank angle [deg]
 
         y(8,i) = sqrt( ( Vw(1) + x(1)*cos(x(2))*cos(x(8)) )^2 + ...
-            ( Vw(2) + x(1)*cos(x(2))*sin(x(8)) )^2 );                   % Ground Speed
+            ( Vw(2) + x(1)*cos(x(2))*sin(x(8)) )^2 );                   % Ground Speed [m/s]
         y(9,:) = atan2( ( Vw(2) + x(1)*cos(x(2))*sin(x(8)) ),...
-            ( Vw(1) + x(1)*cos(x(2))*cos(x(8)) ) );                     % Ground Heading
+            ( Vw(1) + x(1)*cos(x(2))*cos(x(8)) ) );                     % Ground Heading [rad]
     end
 end
 

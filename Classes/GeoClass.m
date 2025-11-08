@@ -7,6 +7,7 @@ classdef GeoClass < referenceEllipsoid
         %b
         %e
         %f
+        LMercfs
     end
     
     methods
@@ -14,6 +15,39 @@ classdef GeoClass < referenceEllipsoid
             %GEOCLASS Construct an instance of this class
             %   Detailed explanation goes here
             obj = obj@referenceEllipsoid('WGS84');
+            obj.LMercfs = obj.CalcLMer();
+        end
+        
+        function Cfs = CalcLMer(obj)
+            %CALCMER: function that calculates the coefficients for the
+            %meridian arch length method.
+            e = obj.Eccentricity;
+            Cfs = nan(6,1);
+            Cfs(1) = 1 + 0.75*e^2 +45/64*e^4+175/256*e^6+...
+                11025/16384*e^8+43659/65536*e^10;
+            Cfs(2) = 0.75*e^2+15/16*e^4+525/512*e^6+...
+                2205/2048*e^8+72975/65536*e^10;
+            Cfs(3) = 15/64*e^4 + 315/256*e^6+...
+                2205/4096*e^8 + 10395/16384*e^10;
+            Cfs(4) = 35/512*e^6+315/3048*e^8+...
+                31185/131072*e^10;
+            Cfs(5) = 315/16384*e^8+3465/65536*e^10;
+            Cfs(6) = 693/131072*e^10;
+        end
+        
+        function R = LatLon2Vec(obj,lat,lon,h)
+        %LATLON2VEC: function that gives the position vector in ECEF
+        %coordinates given geodetic latitude, longitude and geodetic
+        %altitude
+        %   INPUT
+        %   -lat: geodetic latiude [rad]
+        %   -lon: longitude [rad]
+        %   - h: geodetic altitude [m]
+            [~,Dmu] = obj.RadCurv(lat);
+            R = [(Dmu+h)*cos(lat)*cos(lon);...
+                (Dmu+h)*cos(lat)*sin(lon);...
+                (Dmu*(1-obj.Eccentricity^2)+h)*sin(lat)];
+
         end
         
         function [Rmu,Dmu] = RadCurv(obj,mu)
@@ -31,12 +65,27 @@ classdef GeoClass < referenceEllipsoid
 
         function [Rnu,m] = rhumbLine(obj,lat,lng)
         %RHUMBLINE: function that calculates the path along the rhumb line
+        %for the points given. It uses MATLAB navigation toolbox
+        %   INPUT
+        %   -lat: [lat(A),lat(B)]  geodetic latitudes of teh starting and ending
+        %       points [rad]
+        %   -lng: [lng(A),lng(B)] longitudes of teh starting and ending
+        %       points [rad]            
+            Rnu = azimuth("rh",lat(1),lng(1),lat(2),lng(2),obj,'radians');
+            m = distance("rh",lat(1),lng(1),lat(2),lng(2),obj,'radians');
+        end
+
+        %% 
+        function [Rnu,m] = rhumbLineOLD(obj,lat,lng)
+        %RHUMBLINE: function that calculates the path along the rhumb line
         %for the points given
         %   INPUT
         %   -lat: [lat(A),lat(B)]  geodetic latitudes of teh starting and ending
         %       points [rad]
         %   -lng: [lng(A),lng(B)] longitudes of teh starting and ending
         %       points [rad]
+        % Tested with Table 6.3 and matlab functions 
+
         % Definition of Isometric Latitudes
             latc = nan(length(lat),1);
             for i = 1:length(lat)
@@ -47,7 +96,25 @@ classdef GeoClass < referenceEllipsoid
             dlng = lng(2) - lng(1);
          % Rhumb path   
             Rnu = atan2(dlng,dlat);
-
+         % Distance
+            Ms = obj.ArchDist(lat);
+            m = (Ms(2) - Ms(1))/cos(Rnu);
+        end
+        
+        function M = ArchDist(obj,lat)
+            nlat = length(lat); v2 = nan(1,6);
+            M = nan(nlat,1); 
+            em1 = obj.SemimajorAxis*(1-obj.Eccentricity^2);
+             
+            for j = 1:nlat
+                sg = -1;
+                v2(1) = em1*lat(j);
+                for i = 1:5
+                    v2(i+1) = sg*em1*sin(2*i*lat(j))/(2*i);
+                    sg = -sg;
+                end
+                M(j) = v2*obj.LMercfs(:);
+            end
         end
 
         function lc = IsometricLat(obj,lat)
@@ -61,7 +128,8 @@ classdef GeoClass < referenceEllipsoid
             ( 1+obj.Eccentricity*sin(lat) ) )...
             ^(obj.Eccentricity/2)  ); % 60 is used to obtain the result in radiants and not seconds
         end
-
+       
+        %% 
         function ang = LatLon2Rad(~,ainp,ref,flg)
         %LATLONG2RAD: function that transforms the standard format for
         %latitude and longitude into radiants
@@ -118,6 +186,8 @@ classdef GeoClass < referenceEllipsoid
             
             Vout = M*Vin;
         end
+    
+    
     end
 end
 

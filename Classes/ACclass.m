@@ -25,6 +25,8 @@ classdef ACclass
         Kp
         Kb
         Ki
+        lat % 2zita*wn wn^2
+        Klat
 
     end
     
@@ -248,7 +250,13 @@ classdef ACclass
         end
 
         end
-
+        
+        function rt = turnRadius(obj,V,phi)
+        %TURNRADIUS: function that returns the turn radius for a given
+        %speed and weight
+            n = 1/cos(phi);     % Load Factor
+            rt = V^2/(9.81*sqrt(n^2-1));
+        end
 
         function [Kb,Kp,Ki] = gain_assign(obj,name)
             load(name,'Kb','Kp','Ki');
