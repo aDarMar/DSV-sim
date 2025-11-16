@@ -61,14 +61,6 @@ subplot(2,1,2); plot(...%tnl,0.5*rho.*xnl(:,1).^2.*out(1,:),...%
 %subplot(3,1,3); plot(t,xl(:,3)); title()
 
 %% Controllers
-DEBUG = true;
-if DEBUG
-    % Debug B767 30000ft
-    A = zeros(3,3); B =zeros(3,2); C = zeros(4,3);
-    A(1,1) = -0.0889; A(1,2) = -32.2; A(2,1) = 3.66e-4; A (3,2) = 787;
-    B(1,1) = -21.7; B(1,2) = 1.63e-4; B(2,1) = 1.73e-1;
-    C(1,1) = 0.593; C(2,1) = 1e-3; C(3,3) = 1; C(4,2) = 4.72e4;
-end
 Kps = zeros(2,4); Kis = zeros(2,4);
 K = [Kps;Kis];
 Ai = [A,B;zeros(2,3),zeros(2,2)]; Bi = [B,zeros(3,2);zeros(2,2),eye(2,2)];
@@ -127,4 +119,4 @@ rl = rlocusplot(lonsys);
 
 %plot(real(r),imag(r))
 
-%% Design dei Guadagni dei Controllori
+Acl = Ai - Bi*K*Ci;
