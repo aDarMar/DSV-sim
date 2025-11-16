@@ -38,11 +38,42 @@ classdef GeoClass < referenceEllipsoid
         function R = LatLon2Vec(obj,lat,lon,h)
         %LATLON2VEC: function that gives the position vector in ECEF
         %coordinates given geodetic latitude, longitude and geodetic
+        %altitude using built in Matlab mapping toolbox
+        %   INPUT
+        %   -lat: geodetic latiude [rad]
+        %   -lon: longitude [rad]
+        %   - h: geodetic altitude [m]
+        if length(lat) ~= length(lon) && length(lat) ~= length(h)
+            error('Latitude,Longitude and Height vector must have the same number of elements');
+        end
+            pts = length(lat);
+            R = nan(3,pts);
+            [R(1,:),R(2,:),R(3,:)] = geodetic2ecef(obj,lat,lon,h,'radians');
+
+        end
+
+        function [Rnu,m] = rhumbLine(obj,lat,lng)
+        %RHUMBLINE: function that calculates the path along the rhumb line
+        %for the points given. It uses MATLAB navigation toolbox
+        %   INPUT
+        %   -lat: [lat(A),lat(B)]  geodetic latitudes of teh starting and ending
+        %       points [rad]
+        %   -lng: [lng(A),lng(B)] longitudes of teh starting and ending
+        %       points [rad]            
+            Rnu = azimuth("rh",lat(1),lng(1),lat(2),lng(2),obj,'radians');
+            m = distance("rh",lat(1),lng(1),lat(2),lng(2),obj,'radians');
+        end
+
+        %% 
+        function R = LatLon2VecOLD(obj,lat,lon,h)
+        %LATLON2VEC: function that gives the position vector in ECEF
+        %coordinates given geodetic latitude, longitude and geodetic
         %altitude
         %   INPUT
         %   -lat: geodetic latiude [rad]
         %   -lon: longitude [rad]
         %   - h: geodetic altitude [m]
+        % Tested with geodetic2ecef matlab class
             [~,Dmu] = obj.RadCurv(lat);
             R = [(Dmu+h)*cos(lat)*cos(lon);...
                 (Dmu+h)*cos(lat)*sin(lon);...
@@ -63,19 +94,6 @@ classdef GeoClass < referenceEllipsoid
                 sqrt( 1 - ( obj.Eccentricity*sin(mu) )^2 );
         end
 
-        function [Rnu,m] = rhumbLine(obj,lat,lng)
-        %RHUMBLINE: function that calculates the path along the rhumb line
-        %for the points given. It uses MATLAB navigation toolbox
-        %   INPUT
-        %   -lat: [lat(A),lat(B)]  geodetic latitudes of teh starting and ending
-        %       points [rad]
-        %   -lng: [lng(A),lng(B)] longitudes of teh starting and ending
-        %       points [rad]            
-            Rnu = azimuth("rh",lat(1),lng(1),lat(2),lng(2),obj,'radians');
-            m = distance("rh",lat(1),lng(1),lat(2),lng(2),obj,'radians');
-        end
-
-        %% 
         function [Rnu,m] = rhumbLineOLD(obj,lat,lng)
         %RHUMBLINE: function that calculates the path along the rhumb line
         %for the points given
@@ -176,17 +194,56 @@ classdef GeoClass < referenceEllipsoid
         %   - flg: 'N2E' NED to ECEF and 'E2N' ECEF to NED
         %   - lat: [rad] geodetic latitude
         %   - lng: [rad[ longitude
-            sl = sin(lat); cl = cos(lat);
-            sm = sin(lng); cm = cos(lng);
-            
-            M = [-sm*cl,-sm*sl,cm; -sl,cl,0; -cm*cl,-cm*sl,-sm];
-            if isequal(flg,'E2N')
-                M = M';
+        % Tested with ecef2ned matlab function
+            % If Latitude and Longitude are given as vectors 
+            nl = length(lat); nm = length(lng); nv = length(Vin(1,:));
+            if nl > 1 && (nl ~= nm) 
+                error('Number of Latitudes and Longitudes given is not equal')
             end
+            if nv > 1 && nl>1
+                error('You can pass either multiple lat-long pairs with one vector, or one lat-long pair with multiple vectors. Not both.')
+            end
+            if ~isequal(flg,'N2E') && ~isequal(flg,'E2N')
+                error('Flaf must be E2N or N2E')
+            end
+            if nv == 1
+                % One vector multiple lat-lon
+                Vout = nan(3,nl);
+                for j = 1:nl
+                    sm = sin(lat(j)); cm = cos(lat(j));
+                    sl = sin(lng(j)); cl = cos(lng(j));
+                    M = [-sm*cl,-sm*sl,cm; -sl,cl,0; -cm*cl,-cm*sl,-sm];% ECEF2NED
+                    if isequal(flg,'N2E')
+                        M = M';
+                    end
+                    Vout(:,j) = M*Vin(:);
+                end
+            else
+                % Multiple vectors, one lat/lon
+                Vout = nan(3,nv);
+                sm = sin(lat); cm = cos(lat);
+                    sl = sin(lng); cl = cos(lng);
+                    M = [-sm*cl,-sm*sl,cm; -sl,cl,0; -cm*cl,-cm*sl,-sm];% ECEF2NED
+                    if isequal(flg,'N2E')
+                        M = M';
+                    end
+                for j = 1:nv
+                    Vout(:,j) = M*Vin(:,j);
+                end
+
+
+
+            end
+
+
             
-            Vout = M*Vin;
-        end
+            
+                
     
+                
+
+        end
+
     
     end
 end

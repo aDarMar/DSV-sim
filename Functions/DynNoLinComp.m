@@ -1,7 +1,7 @@
 function dxdt = DynNoLinComp(t,x,uct,AC,GEO,V)
 %UNTITLED4 Summary of this function goes here
 %   x - State vector [V,ga,h,m,CL,T,VD,Psi,phi,p,mu,lng] [m/s,rad,m,kg,-,N,kts,rad,rad,rad/s]
-%   uct - Input vector [CL,T]
+%   uct - Input vector [CL,T,wn^2*phiD]
 %   AC - Aircraft class object ACclass
 %   GEO - struct or class ???? containing data abouth earth model
 %   V   - CG velocity [m/s]
@@ -25,8 +25,8 @@ dxdt(4) = 0; % Constant mass                                    %dm
 
 dxdt(8) = ( L*sin( x(9) ) )/( x(4)*x(1)*cos(x(2)) );            % dPsi
 dxdt(9) = x(10);                                                % dPhi
-dxdt(10) = -AC.lat(1)*x(10)-AC.lat(2)*x(9) + u(3);              % dp
-%AC.Lp*x(10) + AC.Lda*u(3);                           % dPhi
+dxdt(10) = -AC.lat(1)*x(10)-AC.lat(2)*x(9) + uct(3);            % dp
+%AC.Lp*x(10) + AC.Lda*u(3);                                     % dPhi
 
 [Rmu,Dmu] = GEO.RadCurv(x(11));
 dxdt(11) = V(1)/(Rmu+x(3));                                     % Geodetic Latitude

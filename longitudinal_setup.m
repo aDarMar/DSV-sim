@@ -299,7 +299,7 @@ function main()
                 
                 
                 if iway == 2
-                    [u,temp,~] = LongControlOut(te,[x_way(:,iway-1);0;0;0],y_way,temp,bounds,AC);
+                    [u,temp,~] = LongControlOut(te,[x_way(:,iway-1);0;0;0],y_way,temp,bounds,AC); % ??? cosi Kh non è -1
                     if temp(1) ~= 7
                         ye(6) = u(2);
                     end

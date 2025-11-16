@@ -32,6 +32,20 @@ x(11) = lati; x(12) = lngi;
 wayRoute(x,y,GEO);
 %LatDirControlOut([],x,y,[],[],[],GEO)
 
+%% DEBUG di Posizione ECEF2LatLon
+[Xp,Yp,Zp] = geodetic2ecef(GEO,[lati,lati,cnv(1)],[lngi,lngi,cnv(2)],[0,0,10],'radians');
+R = GEO.LatLon2Vec(lati,lngi,10);
+%DEBUG NED2ECEF
+[XE,YE,ZE] = ned2ecef(0,0,1,lati,lngi,0,GEO,"radians");
+n1 = GEO.NED2DIS([0,0,1]','N2E',lati,lngi); 
+n1 = n1/norm(n1,2);
+n = [XE-Xp(1),YE-Yp(1),ZE-Zp(1)]; n = n/norm(n,2);
+
+%[n(1),n(2),n(3)] = ecef2ned(Re2(1),Re2(2),Re2(3),lati,lngi,0,GEO,'radians');
+a = 1;
+
+
+
 %% DEBUG di wayRoute
 
 function dR = wayRoute(x,y_way,GEO)

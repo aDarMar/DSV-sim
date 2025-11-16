@@ -1,7 +1,9 @@
-close all; clear; clc
+close all; 
+clear; clc
 
 addpath('Functions\')
 addpath('Longitudinal Waypoints\')
+addpath('Latero-Directional Waypoints\')
 addpath('Classes')
 addpath('Data')
 
@@ -12,6 +14,7 @@ function main()
     CfrLin = true;
     %% Aircraft Definition
     nmfl = "Q100.aero"; AC = ACclass(nmfl);
+    AC.lat = [2*1*1;1;2];% TEMPORANEOOOO 2*zita*wn,wn^2,...
     GEO = GeoClass();
     %% Waypoints
     % Per ora sono le grandezze sono nel sistema imperiale
@@ -36,18 +39,21 @@ function main()
     %COMPDYNNLCON Summary of this function goes here
     %   x: state vector + auxiliary variables 
     %       [Va.ga,h,m,CL,T,Vd,Psi,Phi,p,mu,lng]
-    
+        % Initialize variables
+        uct = nan(3,1); 
         % Recover data from previous successful time step
-        addt = x_add();                                                             % [ID,VIAS,dVd/dt,x(7),Kh]
+        addt = x_add();                                                      % [ID,VIAS,dVd/dt,x(7),Kh]
         % Calculate Wind
         Vw = WindMap(x);
         % Define current state output
-        y = CompleteDynNoLin_Out(x,Vw,gm);
+        y = CompleteDynNoLin_Out(x,Vw);                                     % [IAS,M,h,hdot,Psi,p,Phi,VGT,PsiGT]                     
         % Controlled Outputs
-        [uct,uout,dxdt_c] = LongControlOut(t,x,y_way(1:4),addt,bounds,AC,y(1:4));   % Longitudinal Control
-        a = LatDirControlOut(t,x,y,y_way,AC);                                       % Latero-Directional COntrol
-
-        dxdt = LonDynNoLin(t,x,uct,AC);                                             %[Va,ga,h,m,-,-,-,psi,phi,p]
+        [uct(1:2),~,dxdt_c] = LongControlOut(t,x,y_way(1:4),...
+            addt,bounds,AC,y(1:4));                                         % Longitudinal Control
+        [uct(3),~] = LatDirControlOut(t,x,y,y_way,AC,GEO);                  % Latero-Directional COntrol   
+        V = nan(2,1);
+        V(1) = y(8)*cos(y(9)); V(2) = y(8)*sin(y(9));                       %Vxi,Vyi
+        dxdt = DynNoLinComp(t,x,uct,AC,GEO,V);                             %[Va,ga,h,m,-,-,-,psi,phi,p]
 
         dxdt(5:7) = dxdt_c;
 
@@ -62,9 +68,7 @@ function main()
         %error is inside an ellypse in the h-IAS error plane centered
         %around 0 error.
 
-        y = LongDynNoLin_Out(x);
-        err = y_way(:) - y(:); 
-        dst = ( 20*err(1)/bounds(1) )^2 + ( 15*err(3)/bounds(2) )^2 - 1; % The point must be inside an ellipse in the h-IAS plane
+        dst = CaptureHalo(x,y_way,bounds,GEO);
 
         position = dst;         % When stop = 0 the integration stops
         isterminal = 1;         % Halt integration
@@ -74,7 +78,7 @@ function main()
     % output function: it is called by the ode solver only after a
     % successful time step integration
     
-    function status = myout(t, x, flag)
+    function status = myoutcomp(t, x, flag)
         % Forse è inutile per questo scopo perchè passa un vettore di tempi
         % mentre la funzione di output ha bisogno dei singoli tempi a
         % causa del dt
@@ -87,12 +91,12 @@ function main()
                 param = -2;
                 % Initialize the addt variables
                 
-                if iway == 2
+                if iway == 1
                     % Executes this code only if it is teh first waypoint,
                     % otherwise it takes the values from previous
                     % integration
                     addt = x_add();        % x_add = [ID,VIAS,dVd/dt,x(7),hdot]
-                    [~,uout,dxdt] = LongControlOut(t(1),x,y_way,addt,bounds,AC);
+                    [~,uout,dxdt] = LongControlOut(t(1),x,y_way(1:4,iway+1),addt,bounds,AC);
                     addt(1) = uout(1);
                     addt(2) = uout(2); addt(3) = dxdt(3);
                     addt(4) = x(7);  addt(5) = uout(4);     % Kh
@@ -103,16 +107,22 @@ function main()
             otherwise
             % Main code to update param
                 nt = length(t);
-                store_temp = nan(nt,7); % [ID,VIAS,hdotc,Kc,Vd,CL,T]
+                store_temp = nan(nt,ns); % [ID,VIAS,hdotc,Kc,Vd,CL,T,Roll,PhiD,PsiD,dR]
                 store = out_store(); addt = x_add();        % x_add = [ID,VIAS,dVd/dt,x(7),Kh]
                 for it = 1 :nt
-                    [uct,uout,dxdt] = LongControlOut(t,x,y_way,addt,bounds,AC);
-                    %store_temp(it,1) = t(it);
-                    l1 = length(uout(:)'); l2 = length(uct(:)');
-                    store_temp(it,1:l1) = uout(:)'; store_temp(it,1+l1:l1+l2) = uct(:)';
-                    %[ID,VIAS,hdotc,Kh,Vd,CL,T]
-                    [uld,uadd] = LatDirControlOut(t,x,y_way,x_add,bounds,AC,GEO);
-
+                    % Output Vector
+                    Vw = WindMap(x);
+                    y = CompleteDynNoLin_Out(x,Vw);
+                    % Longitudinal Output [ID,VIAS,hdotc,Kh,Vd,CL,T]
+                    [uct,uout,dxdt] = LongControlOut(t,x,y_way(1:4,iway+1),...
+                        addt,bounds,AC);
+                    % Directional Output
+                    [uld,uadd] = LatDirControlOut(t,x,y,y_way(:,iway+1),...
+                        AC,GEO);
+                    % Store Data
+                    store_temp(it,:) = [uout(:)',uct(:)',uld(:)',uadd(:)'];
+                    % [ID,VIAS,hdotc,Kc,Vd,CL,T,Roll,PhiD,PsiD]
+                    
                 end
                 
                 if uout(1) ~= addt(1) || ( uout(1) ~= 3 && uout(1) ~= 6 )
@@ -135,19 +145,20 @@ function main()
 
     end
     %% Simulation
-    CHS = 'waypoint'; 
+    CHS = 'complete'; 
     options = odeset('RelTol',1e-6,'AbsTol',1e-5);%,'OutputFcn',@myout);%,...
    %'Events',@events);
 
    switch CHS
        case 'ctrl'
             
-        case 'waypoint'
-            addata = nan(1,6);         
-            out_store = storefun(nan(1,7)); % CONTROLLARE SE FUNZIONANO E INIZIALIZZARE
-            out_step = storefun(nan(1,10));     % ID,Vc,hdotc,Kh,Vd,CL,T,x*,x*@dt<0
+       case 'complete'
+            addata = nan(1,6); 
+            ns = 11;
+            out_store = storefun(nan(1,ns)); % CONTROLLARE SE FUNZIONANO E INIZIALIZZARE
+            % out_step = storefun(nan(1,10));     % ID,Vc,hdotc,Kh,Vd,CL,T,x*,x*@dt<0
             % x: [Va.ga,h,m,CL,T,Vd,Psi,Phi,p,mu,lng]
-            tstt = 1;
+            tstt = 2;
             switch tstt
                 case 1
                     % Two segments
@@ -161,10 +172,33 @@ function main()
                     i = 2; ways(i).lat = 45.58; ways(i).lng = 27.93;
                     i = 3; ways(i).lat = 50.68; ways(i).lng = 26.41;
                     ways(i).Az = 110;
+                case 2
+                    Vs = [120,140,120];
+                    gas = [0,0,0];
+                    hs = [4500,4500,4750];
+                    ms = ones(3,1)*15400;
+                    ways(1).ID = "Init"; ways(2).ID = "T2F"; ways(3).ID = "C2F";
+                    i = 1; ways(i).lat = 35.33; ways(i).lng = 17.34;
+                    i = 2; ways(i).lat = 35.82; ways(i).lng = 17.78;
+                    i = 3; ways(i).lat = 36.5; ways(i).lng = 17.2;
+                    ways(i).Az = -70;
+                case 3
+                    Vs = [120,120,120];
+                    gas = [0,0,0];
+                    hs = [4500,4500,4500];
+                    ms = ones(3,1)*15400;
+                    ways(1).ID = "Init"; ways(2).ID = "C2F";
+                    ways(3).ID = 'R2F';
+                    i = 1; ways(i).lat = 36.2; ways(i).lng = 17.9;
+                    i = 2; ways(i).lat = 36.5; ways(i).lng = 17.2;
+                    ways(i).Az = -70;
+                    i = 3; ways(i).lat = 36.55; ways(i).lng = 17.22;
+                    ways(i).t = 1; ways(i).PsiE = 20;
+                    
             end
             Tfin = 1500;                                            % Final time
             te = 0;                                                 % Starting time
-            [x_way,y_way,ye,bounds] = BuildWaypoint(GEO,AC,Vs,gas,hs,...
+            [x_way,y_way,ye,bounds,temp] = BuildWaypoint(GEO,AC,Vs,gas,hs,...
                 ms,ways,te,true);                                   % Initial condition
             
             %ye = x_way(:,1);                                        
@@ -173,43 +207,45 @@ function main()
             %[~,~,~,ye(5:6)] = AC.LongLinSys(x_way(:,1),x_way(4,1)); % CL,T at t0
             
 
-            tres = []; xres = [];                                % Storage vectors
-            options.OutputFcn = @myout;                          % Set output function TODOOOO CHANGE FUN
-            nway = length( x_way(1,:) );
+            tres = []; xres = [];                               % Storage vectors
+            options.OutputFcn = @myoutcomp;                     % Set output function TODOOOO CHANGE FUN
+            nway = length( y_way(1,:) )-1;                        % Number of waypoints ( y_way contains also initial condition)
             % TEMPPP store_way = nan(nway,11); store_way(:,4:7) = x_way';
 
             %y_str = LongDynNoLin_Out( x_way(:,1) ); 
             %temp = [0,y_str(1),zeros(1,2),-1]; % [ID,VIAS,dVd/dt,x(7),Kh]
-            %x_add = storefun( temp );%[te;te;0;-1;0;zeros(8,1)]);
+            x_add = storefun( temp );                           %[te;te;0;-1;0;zeros(8,1)]);
+            iway = 1;
+            store_way(iway,1:3) = [te,bounds(:)'];
+            while  ~(iway > nway) && te < Tfin
 
-            for iway = 2:nway
-
-                if iway > 2
+                if iway > 1
                     % Assigns the initial value for thrust in It
                     %AC.Thrust_Law(x(6),x(3))
-                    temp = out_store();
-                    ye(5) = temp(end,6); % CL last
-                    ye(6) = temp(end,7); % CL last
-                    y_way = LongDynNoLin_Out( x_way(:,iway) );      % Defining the y desired output. The bounds are in kts and ft
+                    temp = out_store();                         % [ID,IASd,hdotc,Vd,CL,T,Roll,PhiD,PsiD,dR]                                                    
+                    ye(5) = temp(end,6);                        % CL last. The state variable contains only the integral parto of CL
+                    ye(6) = temp(end,7);                        % T last
+                    % y_way = LongDynNoLin_Out( x_way(:,iway) );            % Defining the y desired output. The bounds are in kts and ft
                     bounds = UpdateBounds( x_way(:,iway) );
                 end
 
-                wayevent =@(t,x)wayReachedEvent(t,x,y_way);         % Defining the termination event for the ith waypoint
-                options.Events = wayevent;                          % Updates events function with new waypoint
-                options.OutputFcn = @myout;
-                [t,x,te,ye,ie] = ode113( @(t,x)CompDynNLCon( t,x,AC,y_way,bounds ),...
-                    [te,Tfin],ye,options );
+                wayevent =@(t,x)wayReachedEvent(t,x,y_way(:,iway+1));         % Defining the termination event for the ith waypoint
+                options.Events = wayevent;                                  % Updates events function with new waypoint
+                %options.OutputFcn = @myoutcomp;
+                [t,x,te,ye,ie] = ode113( @(t,x)CompDynNLCon( t,x,AC,...
+                    y_way(:,iway+1),bounds ),[te,Tfin],ye,options );
                 
-                tres = [tres;t(1:end-1,:)]; xres = [xres;x(1:end-1,:)];               % Saves the ith waypoint results
+                tres = [tres;t(1:end-1,:)]; xres = [xres;x(1:end-1,:)];     % Saves the ith waypoint results
                 if isempty(te)
-                    te = Tfin;
+                    te = min(t(end),Tfin);
                 end
-                store_way(iway,1:3) = [te,bounds(:)'];
+                iway = iway+1;
+                store_way(iway,1:3) = [te,bounds(:)'];      % After increasing iway because first row is initial cond.
             end
             tres = [tres;t(end,:)]; xres = [xres;x(end,:)];
             x_aux = out_store();
-            x_debug = out_step();
-            plot_results(AC,CHS,tres,xres,x_aux,x_debug...
-                ,[],[],[],[],[],store_way);
+            %x_debug = out_step();
+            plot_results(AC,CHS,tres,xres,x_aux,y_way...
+                ,[],[],[],[],[],store_way,GEO);
     end
 end

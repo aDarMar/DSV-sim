@@ -1,24 +1,34 @@
-function [u,u_out] = LatDirControlOut(t,x,y_way,AC,GEO)
+function [u,u_out] = LatDirControlOut(t,x,y,y_way,AC,GEO)
 %LATDIRCONTROLOUT Summary of this function goes here
 %   INPUT
 %   - x: [Va.ga,h,m,CL,T,Vd,Psi,Phi,p,mu,lng]
 %   - y: [VIAS,M,h,hdot,phi,p,psi,Vg,psiG]
 %   - y_way: [VIAS,M,h,hdot,PTf, --- ]
-
+%   OUTPUT
+%   - u_out [PhiC,PsiC,dR]
 %   - x_add: [ID,VIAS,dVd/dt,x(7),Kh] evaluated at previous successful iteration
 %   - bounds: [vbound,hbound,V/g] in SI units
 %   OUTPUT
 %   - u: Roll moment [N*m]
 
     %u_out(1) = ZoneIdf(err,bounds);     % Identifies the zone in which the aircraft is                 Flag vector [ slow,fast,Low,High,lowenergy]                                                                 % Force Vector [Roll]
+    k = 1; % TEMPORANEOOOO
 
-    PhiC = wayRoute(x,y_way,dPsiw,k,GEO);
+    u_out = nan(3,1);
+    [PhiC,u_out(2),u_out(3)] = wayRoute(x,y,y_way,k,AC,GEO);
+    u = AC.lat(2)*PhiC;                 % wn^2*PhiD
+    u_out(1) = PhiC;
 
-    u = AC.lat(1)*PhiC;                 % Roll Moment
-    u_out = PhiC;
 end
 
-function PhiD = wayRoute(x,y_way,dPsiw,k,GEO)
+function [PhiD,PsiD,dR] = wayRoute(x,y,y_way,k,AC,GEO)
+%WAYROUTE: Function that defines the commanded bank angle to execute the
+%commanded lateral manouver
+%   INPUT
+%   -   x
+%   - y
+%   - y_way
+%   - k
 %   OUTPUT
 %   - PhiD: commanded roll angle [rad]
 % Decide teh kind of command to use
@@ -32,6 +42,9 @@ function PhiD = wayRoute(x,y_way,dPsiw,k,GEO)
     else
     
     end
+    dPsiw = y(9) - x(8);                                    % PsiGT - Psi [rad]
+    Vi = sqrt( y(8)^2 + ( y(4)*0.305/60 )^2 );              % Aircraft Speed @ to Ground (CG Speed)
+    rt = AC.turnRadius(Vi,0.2967);                          % Radius of  curvature [m]
     switch flg
         case 1
         %% Rhumb Line Tracking
@@ -41,10 +54,9 @@ function PhiD = wayRoute(x,y_way,dPsiw,k,GEO)
         %   where 
         %   PsiGT_d = Kv - dPsi
         % In this case y_way contains:
-        %   - y_way: [1:4,ID,Kv,mu(B),lng(B),mu(A),lng(A)]
-            dPsiw = y(9) - x(8);                                    % PsiGT - Psi
+        %   - y_way: [1:4,ID,Kv,mu(B),lng(B),Rx,Ry,Rz,mu(A),lng(A)]
+            
             dR = rhumbLatDist(x,y_way,GEO);                         % distance from the desired rhumb line [m]
-            rt = AC.turnRAdius(x(1),x(9));                          % Radius of  curvature [m]
             PsiD = IntercePsi(dR,rt);                               % dPsi [rad]
             PsiD = y_way(6) - PsiD;                                 % PsiGT_d [rad]
             PsiD = PsiD - dPsiw;                                    % Psi_d [rad]
@@ -53,27 +65,32 @@ function PhiD = wayRoute(x,y_way,dPsiw,k,GEO)
             % Converts the Heading error into bank angle error: firt check
             % if the heading error is too big causing a too great bank
             % angle. The theresold is set at 15°
-            if err > 0.2618                                         % Heading error is > 15°
-                PhiD = 0.5236;                                      % PhiD is set to 30°
+            if abs(err) > 0.2618                                         % Heading error is > 15°
+                PhiD = 0.5236*sign(err);                                      % PhiD is set to 30°
             else
                 PhiD = AC.lat(3)*err;                               % PhiD [rad] 
             end
         case 2
         %% Circular Arch Tracking
-        % y_way[1:4,ID,rx,ry,rt,Psi(end),turn]
+        % y_way = [---,ID,mu(end),lng(end),Rx(end),
+                % Ry(end),Rz(end),rt,psi(end),turn,mu(ctr),lng(ctr),Rx(ctr)
+                % Ry(ctr),Rz(ctr),Phic ]
             dR = circleLatDist(x,y_way,GEO);
-            PsiD = IntercePsi(dR,y_way(8));
-
-            PhiD = AC.Klat(3,k)*PsiD;
+            PsiD = IntercePsi(dR,y_way(11));    % dPsiD
+            
+            PhiD = AC.lat(3,k)*PsiD;            % dPhiD
+            PhiD = y_way(19) - PhiD;            % PhiD = Phic - dPhi
     end
 end
 
 function dR = circleLatDist(x,y_way,GEO)
-% y_way[1:4,ID,rx,ry,rt,Psi(end),turn]
+% y_way = [---,ID,mu(end),lng(end),Rx(end),
+                % Ry(end),Rz(end),rt,psi(end),turn,mu(ctr),lng(ctr),Rx(ctr)
+                % Ry(ctr),Rz(ctr) ]
 % Calcolare vettoer posizione
     Rc = GEO.LatLon2Vec(x(11),x(12),0);
-    dR = norm(Rc - y_way(6:7),2); % Distanbe between aircraft and circle center
-    dR = y_way(10)*(y_way(8) - dR); % istance from the circonference, positive if right. y_way(1)ì0) = 1 if right turn -1 if left
+    dR = norm(Rc - y_way(16:18),2); % Distanbe between aircraft and circle center
+    dR = y_way(13)*(y_way(11) - dR); % istance from the circonference, positive if right. y_way(1)ì0) = 1 if right turn -1 if left
 % Trasformare vettore poizione in NED
 % Distanza Vettore-Centro
 
@@ -85,7 +102,7 @@ function PsiD = IntercePsi(dR,rt)
     PsiD = 0.5*pi*dR/rt; % PsiD_GT in [rad]
     if abs(PsiD) > 0.25*pi
         % Maximum interception sngle at 45deg
-        PsiD = 0.25*pi*dR/abs(dR);
+        PsiD = 0.25*pi*sign(dR);
     end
 end
 
@@ -109,7 +126,13 @@ function dR = rhumbLatDist(x,y_way,GEO)
     % Distance along the new rhumb lane between teh aircraft current
     % position and the desired rhumb lane
     [~,dR] = GEO.rhumbLine([x(11),lati],[x(12),lngi]);                         
-    
+    R1 = GEO.LatLon2Vec(x(11),x(12),0);
+    dV = y_way(9:11) - R1;
+    dV = GEO.NED2DIS(dV(:),'E2N',x(11),x(12));
+    n = [sin( y_way(6) ),-cos( y_way(6) )];
+    dR2 = n*dV(1:2);
+    dR = dR*sign(dR2); % Positive if on the right
+    %dR = dR2;
     % R1 = [m*cos(Rnu),m*sin(Rnu)]; % Distance vector in Mercator plane
     % % Test 1
     % n1 = [sin(y_way(5)),-cos(y_way(5))]; % Normal to to the rhumb line vector in Mercator plane
@@ -134,14 +157,15 @@ end
 function err = HeadCapture(Psi,PsiD)
 
     if PsiD - Psi > 0
-        eL = PsiD - Psi;
-        eR = eL - 2*pi;
-    else
-        eL = PsiD - Psi + 2*pi;
         eR = PsiD - Psi;
+        eL = eR - 2*pi;
+    else
+        eR = PsiD - Psi + 2*pi;
+        eL = PsiD - Psi;
     end
     err = eR;
     if abs(eL) < abs(eR)
-        err = eL
+        err = eL;
     end
+
 end

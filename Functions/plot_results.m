@@ -1,4 +1,4 @@
-function plot_results(AC,flg,t,x,x_aux,x_debug,tl,xl,A,C,xref,store_way)
+function plot_results(AC,flg,t,x,x_aux,x_debug,tl,xl,A,C,xref,store_way,GEO)
 %PLOT_RESULTS Function that plots the results of the integration
 %   INPUT
 %   x - longitudinal state vector [V,ga,h,m]
@@ -39,10 +39,74 @@ function plot_results(AC,flg,t,x,x_aux,x_debug,tl,xl,A,C,xref,store_way)
         case 'waypoint'
             plotfigs(AC,t,x,x_aux,x_debug);
             IAShplot(AC,t,x,x_aux,x_debug,store_way);
-        
+        case 'complete'
+        % Setup for longitudinal and lateral plot
+
+            FIGT = {'ID','Longitudinal Commanded Values','CL and T',...
+                '\Phi_C and \Psi_C','Roll','V','\gamma_a','h','m',...
+                'I_{CL}','I_T','I_{V_D}','\Psi','\Phi','p',...
+                'mu','l','ID','\dot{h}_c vs \dot{h}','V_D vs V_{IAS}',...
+                '\Psi_D vs \Psi','Forces','Breakdown of Lift',...
+                'Brakdown of Thrust','x_7','IAS and V_D','V and h error',...
+                'Distance Error','Terminator Function'};
+            LEG = repmat({'-'},30,6);
+            LEG{4,1} = '\Phi_D'; LEG{4,2} = '\Psi_D';
+            LEG{19,2} = '\dot{h}_D'; LEG{19,1} = '\dot{h}'; 
+            LEG{20,2} = 'V_D'; LEG{20,1} = 'V';
+            LEG{21,2} = '\Phi_D'; LEG{21,1} = '\Phi';
+            LEG{21,4} = '\Psi_D'; LEG{21,3} = '\Psi';
+            LEG{22,1} = 'D'; LEG{22,2} = 'L'; LEG{22,3} = 'W cos(\gamma_a)';
+            LEG{22,4} = 'W sin(\gamma_a)'; LEG{22,5} = 'T';
+            LEG{23,1} = 'CL'; LEG{23,2} = 'CL_p^V'; LEG{23,3} = 'CL_p^h';
+            LEG{23,4} = 'CL_b^V'; LEG{23,5} = 'CL_b^h'; LEG{23,6} = 'I_L';
+            LEG{24,1} = 'T'; LEG{24,2} = 'T_p^V'; LEG{24,3} = 'T_b^V';
+            LEG{24,4} = 'I_T';
+            LEG{28,1} = '\Delta R'; LEG{28,2} = '\Delta R_{lat}';
+            NFIG = {'Commanded Values','State Variables','Commanded Variables',...
+                'Forces','Integral VD Debug','Errors'};
+
+            % Commanded Variables and Forces
+            figS = [1,1,14,nan; 1,1,18,216; 1,1,19,220; ...
+                1,1,22,123; 1,1,21,nan];
+
+            % State Variables
+            temp = [ones( length(x(1,:)),1 )*2,...
+                ones( length(x(1,:)),1 ),[2:1+length(x(1,:))]'];
+            figS = fillMatrix(figS,temp);
+                      
+            % COmmanded Variables Only
+            temp = [ones(4,1)*3,ones(4,1),...
+                [14,nan(1,3);28,116,nan(1,2);25,118,nan(1,2); ...
+                10,122,9,123] ] ;
+            figS = fillMatrix(figS,temp);
+            % Forces
+            temp = [ones(3,1)*4,ones(3,1),...
+                [34:37,20,nan;19,138:141,106;20,142,143,107,nan,nan] ];
+            figS = fillMatrix(figS,temp);
+            % Integral Vd debug
+           temp = [ones(2,1)*5,ones(2,1),[8,nan;15,17] ];
+           figS = fillMatrix(figS,temp);
+            % Errors
+            temp = [ones(3,1)*6,ones(3,1),[44,246;50,124;51,nan]];
+            figS = fillMatrix(figS,temp);
+            
+            PlotResComp(t,x,x_aux,x_debug,store_way,figS,GEO,...
+                AC,FIGT,LEG,NFIG);  % x_debug is y_way
     end
 
 end
+
+function figS = fillMatrix(figS,temp)
+    ls = length(figS(1,:)); lt = length(temp(1,:));
+    if ls > lt
+        figS = [figS;temp,nan( length(temp(:,1)),ls-lt )];
+    elseif ls < lt
+        figS = [figS,nan( length(figS(:,1)),lt-ls );temp,];
+    else
+        figS = [figS;temp];
+    end
+end
+
 
 function [fig,ax] = plotfigs(AC,t,x,x_aux,x_debug)
 %
@@ -274,4 +338,45 @@ function [fig,ax] = IAShplot(AC,t,x,x_aux,x_debug,store_way)
         end
     end
 
+end 
+
+function frc = CalcForce(t,x,y,AC)
+%CalcForce: Function that calculates the forces during the simulation
+    qs = t(:)*nan; L = qs; D = qs; W = [qs,qs]; Re = qs;
+    Tp = qs; Tb = qs; CLp = [qs,qs]; CLb = [qs,qs];
+    for in = 1:length(x(:,1))
+        [T, a, P, rho] = atmosisa( x(in,3) );
+        qs(in) = 0.5*rho(:)*x(in,1).^2; Re(in) = AC.ReCalc(x(in,3),y(in,2));
+        D(in) = qs(in)*AC.Sw*AC.polar(y(in,2),Re(in),x_aux(in,6));
+        L(in) = qs(in)*AC.Sw*x_aux(in,6);
+        W(in,1) = 9.81*x(in,4)*sin(x(in,2));
+        W(in,2) = 9.81*x(in,4)*cos(x(in,2));
+
+        if t(in) < store_way(it+1,1) && t(in) > store_way(it,1)
+
+        else
+            it = it + 1;
+
+        end
+        u = 1;
+        % Longitudinal Zone
+        switch x_aux(lst+kk,1)
+            case 3
+                u = 2;
+            case 6
+                u = 2;
+            case 7
+                u = 3;
+                Tp(in) = AC.Kp(2,1,u)*( y_way(it,1) - y(in,1) );
+                %T2(kk) = AC.Ki(2,1,u)*errs(kk,1);
+                Tb(in) = AC.Kb(2,1,u)*y(in,1);
+            otherwise
+                u = 1;
+        end
+        CLp(in,1) = AC.Kp(1,1,u)*( y_way(it,1) - y(in,1) ); % CL
+        CLp(in,2) = AC.Kp(1,4,u)*( y_way(it,4) - y(in,4) );
+        CLb(in,1) = -AC.Kb(1,1,u)*( y_way(it,1) - y(in,1) );
+        CLb(in,1) = -AC.Kb(1,4,u)*( y_way(it,4) - y(in,4) );
+    end
+    frc = [D,L,Wsin,Wcos,CLp,CLb,Tp,Lb];
 end

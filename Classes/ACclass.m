@@ -257,6 +257,30 @@ classdef ACclass
             n = 1/cos(phi);     % Load Factor
             rt = V^2/(9.81*sqrt(n^2-1));
         end
+        
+        function Vout = body2NED(obj,Vi,flg,psi,teta,phi)
+        %BODY2NED: function that expresses the vector Vi defined in the
+        %body reference frame into the NED reference and vice-versa
+
+            nps = length(psi); nt = length(teta); nph = length(phi);
+            if nps > 1 && (nps ~= nt) && (nps ~= nph)
+                error('The number of vectors passed must be equal to the number of coordinates, if more than one vector is passed')
+            end
+            Vout = nan(3,nps);
+            for j = 1:nps
+                ct = cos(teta(j)); st = sin(teta(j));
+                cp = cos(phi(j));  sp = sin(phi(j));
+                cps = cos(psi(j)); sps = sin(psi(j));
+
+                M = [ct*cps,ct*sps,-st; ...
+                    -cp*sps+sp*st*cps, cp*cps+sps*st*sp,sp*ct;...
+                    sp*sps+cp*st*cps,-sp*cps++cp*st*sps,ct*cp];     % NED2Body
+                if isequal(flg,'B2N')
+                    M = M';
+                end
+                Vout(:,j) = M*Vi(:);
+            end
+        end
 
         function [Kb,Kp,Ki] = gain_assign(obj,name)
             load(name,'Kb','Kp','Ki');
