@@ -1,0 +1,15 @@
+% DHV-8/100 Input File
+Q100 				% Name
+aero_synt_database_trimmed	% Aerodynamic Model Input File
+contr_gains_clean.mat		% Controller gains 
+MASSES
+15740				% MTOM [kg]
+15649				% TAKE OFF MASS [kg]
+15377				% MAX LANDING WEIGHT [Kg]
+14061				% MZF [kg]
+GEOMETRY
+WING
+56.57					% Wing Surface [m^2]
+24.6					% Wing SPan [m]
+2.38				% Reference Chord [m]
+ENDDATA
