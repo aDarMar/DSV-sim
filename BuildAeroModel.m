@@ -1,8 +1,16 @@
 close all; clear; clc;
 %BUILDAEROMODL: script that builds the .mat files used by the ACclass to
 %define the aerodynamic properties of the aircraft.
+%   OUTPUT
+%   - aero_synt:   [ M,Re,CD0,K,CL@CDmin,CLmax,alphamax,CLa,CL0,CMa,CM0,
+%                       CLda_a,CLda0,CMda_a,CMda0,CMq,CLq,Cyb,Cnb,Clb,Clp,
+%                       Cnp,Clr,Cnr ]
+%   - aero_synt_C: [ M,Re,CMe,CM0e,CLe,CL0e,min( deltaE ),max( deltaE ) ]
+%   - aero_synt_M: [ alpha,CLm,CL0m,CMm,CM0m ]
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 addpath('Data')
 addpath('Classes')
+addpath('Functions')
 
 load('longitudinal_database.mat')
 
@@ -10,114 +18,121 @@ nmfl = "Q100_comp.aero"; AC = ACclass(nmfl);
 
 nA = 20; ndE = 9; nM = 4; nh = 9;
 k = 1; h = 1; kk = 1;
-aero_synt = nan(nM*nh,17); GRF = false; DBG = true;
+aero_synt = nan(nM*nh,19); GRF = false; DBG = true;
+aero_synt_C = nan(nM*nh,8);
 %% CA vs Alpha Fit
 for iM = 1:nM
     
     for iH = 1:nh
         % Stability Derivatives
-        Re = AC.ReCalc( SLNG(k,3),SLNG(k,2) );
-        CLq = SLNG(k,9); CMq = SLNG(k,10);
-        Cyb = SLAT(k,4); Cnb = SLAT(k,5);
-        CL = nan(nA,1); CD = CL; CM = CL; 
-        CLdav = CL; alpha = CL; CMdav = CL;
-        for iA = 1:nA
-            %[ a,M,h,CL,CD,CM,CLad,CMad,CLq,CMq ]
-            alpha(iA) = SLNG(k,1);
-            CL(iA) = SLNG(k,4);
-            CD(iA) = SLNG(k,5);
-            CM(iA) = SLNG(k,6);
-            CLdav(iA) = SLNG(k,7);
-            CMdav(iA) = SLNG(k,8);
-            % [M,h,alpha,Cyb,Cnb,Clb,Clp,Cnp,Clr,Cnr]
-            
-            LAT = SLAT(k,6:10);
-%             Clb(iA) = ;
-%             Clp(iA) = SLAT(k,7);
-%             Cnp(iA) = SLAT(k,8);
-%             Clr(iA) = SLAT(k,9);
-%             Cnr(iA) = SLAT(k,10);
-            
-            
-            k = k + 1;
-        end
-        
-        % Control Derivatives
-        for iE = 1:ndE
-            %[ deltaE,M,h,,dCLde,dCMde ]]
-            deltaE(iE) = CTR(kk,1);
-            CLev(iE) = CTR(kk,5);
-            CMev(iE) = CTR(kk,4);
-            kk = kk + 1;
-        end
-        alphal = 8;
+        iS = nA*(iH-1) + nA*nh*(iM-1) + 1;      % Starting Index
+        iE = nA*iH + nA*nh*(iM-1);              % Ending index
+        % Longitudinal Control
+        iSe = ndE*(iH-1) + ndE*nh*(iM-1) + 1;    % Starting Index
+        iEe = ndE*iH + ndE*nh*(iM-1);            % Ending index
+        % Latero-Directional Control
+
+        alphal = 8;                             % End of linearity alpha 
+        Re = AC.ReCalc( SLNG(iS,3),SLNG(iS,2) );  % Reynolds Number
+
         %% Longitudinal 
         % Stability Derivatives
-        [CLa,CL0,CLmax,alpham] = CAvsAoa(alpha,CL,alphal);
-        [CMa,CM0,~,~] = CAvsAoa(alpha,CM,8,alpham);
-        [CD0,K,CLcdm] = polar(CL,CD,alpha,alpham);
+        [CLa,CL0,CLmax,alpham] = CAvsAoa(SLNG(iS:iE,1),...
+            SLNG(iS:iE,4),alphal);                          % alpha,CL,alphal
+        [CD0,K,CLcdm] = polar(SLNG(iS:iE,4),SLNG(iS:iE,5),...
+            SLNG(iS:iE,1),alpham);
         
-        [errCLda,CLda,~,~] = CAvsAoa(alpha,CLdav,alphal);
-        [errCMda,CMda,~,~] = CAvsAoa(alpha,CMdav,alphal);
-        
-        temp = nan( 1,2*length(LAT) );
-        for iL = 1:length(LAT)
-            % [Clb,Clp,Cnp,Clr,Cnr]
-            [temp(2*k-1),temp(2*k),~,~] = CAvsAoa(alpha,LAT(:,k),alphal);
-        end
-        
+        aero_synt(h,1:9) = [SLNG(iS,2),Re,CD0,K,CLcdm,...   
+            CLmax,alpham,CLa,CL0];
+        aero_synt(h,10:15) = AeroLinRegs( SLNG(iS:iE,1),... % [CM,CLad,CMad]
+            SLNG(iS:iE,6:8),alphal,alpham );
+        aero_synt(h,16:17) = SLNG(iS,9:10);                 % [CMq,CLq]
         % Control Derivatives
-        [CMe,CM0e,~,~] = CAvsAoa(deltaE,CMev,deltaE(end)+1,deltaE(end));
-        [CLe,CL0e,~,~] = CAvsAoa(deltaE,CLev,deltaE(end)+1,deltaE(end));
+        aero_synt_C(h,1:2) = [SLNG(iS,2),Re];              % [M,Re]
+        aero_synt_C(h,3:6) = AeroLinRegs( CTR(iSe:iEe,1),...
+            CTR(iSe:iEe,4:5) );                             % [CMe,CM0e,CLe,CL0e]
+        aero_synt_C(h,7:8) = [min(CTR(iSe:iEe,1))...
+            ,max(CTR(iSe:iEe,1)) ];       % [min( deltaE ),max( deltaE ) ]
         
-        % [ M,Re,CD0,K,CL@CDmin,CLmax,alphamax,CLa,CL0,
-        %   CMa,CM0,x,CLda,x,CMda,CLq,CMq,Cyb,Cnb,Clb,Clp,Cnp,Clr,Cnr ]
-
-        aero_synt(h,:) = [SLNG(k-1,2)...
-            ,Re,CD0,K,CLcdm,CLmax,alpham,CLa,CL0,CMa,CM0,...
-            errCLda,CLda,errCMda,CMda,CLq,CMq,Cyb,Cnb,temp];
-        % [ M,Re,CMe,CM0e,CLe,CL0e,min( deltaE ),max( deltaE ) ]
-        aero_synt_C(h,:) = [SLNG(k-1,2),Re,CMe,CM0e,CLe,CL0e,deltaE(1),deltaE(end)];
+        %% LATERO-DIRECTIONAL
+        % Stability Derivatives
+        aero_synt(h,18:19) = SLAT(iS,4:5);                  % [Cyb,Cnb
+        aero_synt(h,20:29) = AeroLinRegs( SLNG(iS:iE,1),...
+            SLAT(iS:iE,6:10),alphal,alpham);                      % [Clb,Clp,Cnp,Clr,Cnr]
+        % Control Derivatives
 
         if GRF
-            plotData(2,SLNG(k-1,2),Re,deltaE,CLev,CMev,aero_synt_C(h,:));
-            plotData(1,SLNG(k-1,2),Re,alpha,CL,CD,CM,CLdav,CMdav,aero_synt(h,:));
+            % Stability Derivatives vs Alpha Plot
+            plotv = [SLNG(iS:iE,[1,4:8]),SLAT(iS:iE,6:10)]; % alpha,CL,CD,CM,CLda,CMda
+            auxp = CTR(iSe:iEe,[1,4:5]);
+            
+
+            CL = aero_synt(h,8)*SLNG(iS:iE,1) + aero_synt(h,9);
+            CD = aero_synt(h,3) + aero_synt(h,4)*...
+                (SLNG(iS:iE,4)-aero_synt(h,5)).^2;
+            % Longitudinal Stability
+            for iP = 1:3
+                graf(:,iP) = aero_synt(h,9+2*iP-1)*SLNG(iS:iE,1) ...
+                    + aero_synt(h,9+2*iP);
+            end
+            % Latero Directional Stability
+            for iP = 1:5
+                graf(:,iP+3) = aero_synt(h,19+2*iP-1)*SLNG(iS:iE,1) ...
+                    + aero_synt(h,19+2*iP);
+            end
+            % Longitudinal Control
+            for iP = 1:2
+                graf2(:,iP) = aero_synt_C(h,2+2*iP-1)*CTR(iSe:iEe,1) ...
+                    + aero_synt_C(h,2+2*iP);
+            end
+            % Check DImensions
+            if ndE > nA
+                plotv = [plotv,auxp,CL,CD,graf,graf2;nan(  ndE-nA,length(plotv(1,:)) ) ]; % FINIRE
+            else
+                plotv = [ plotv,CL,CD,graf,[auxp,graf2;...
+                    nan( nA-ndE,length( [auxp(1,:),graf2(1,:)] ) ) ] ];
+            end
+
+
+
+            %plotv = [plotv,CL,CD,graf];
+            figS = [ ones(12,1),[1,2,ones(1,8),ones(1,2)*22]',...
+                [(302:311),323:324]',[(112:121),125:126]' ];
+            % 
+            IMTIT = {'Stability Derivatives'};
+            LG = repmat({'-'},12,2);
+            TIT = {'CL - $\alpha$','Polar','CM - $\alpha$','CL$_{\dot{\alpha}}$ - $\alpha$',...
+                    'CM$_{\dot{\alpha}}$ - $\alpha$','Cl_\beta - \alpha','Cl_p - \alpha',...
+                    'Cn_p - \alpha','Cl_r - \alpha','Cn_r - \alpha','CM_{\delta_E} - \delta_E',...
+                    'CL_{\delta_E} - \delta_E'};
+            PlotPerImag( plotv,5,figS,IMTIT,LG,TIT )
+
         end
         h = h + 1;
     end
-    
-    %synth(h,:) = [DATA.INP.mach(iM)...
-    %    ,Re,CD0,K,CLcdm,CLa,CL0,max(CL),AoA(CL==max(CL))];
-    % [M,Re,CD0,K,CL@min(Cd),CLa,CL0,CLmax,AoA@CLmax]
+
     
 end
 
 %% CA vs Mach Fit
 aero_synt_M = nan(nA,4);
-k = 1;
+h = 1; iM = 1:nM;
 for iA = 1:nA
-    
-    CL = nan(nM,1); CD = CL; CM = CL;
-    CLdav = CL; M = CL; CMdav = CL;
-       for iM = 1:nM
-           q = iA + nA*nh*(iM-1);
-           M(iM) = SLNG(q,2);
-           CL(iM) = SLNG(q,4);
-           CM(iM) = SLNG(q,5);
-       end
-       CMp = polyfit(M,CM,2); 
-       CLp = polyfit(M,CL,4);
-       aero_synt_M(k,:) = [alpha(iA),CMp];
-       
-       plotvsM( alpha(iA),M,CL,CM );
-       
-       k = k + 1;
+    q = iA + nA*nh*(iM-1);  % Mach Indices at same alpha
+    aero_synt_M(h,2:5) = AeroLinRegs( SLNG(q,2),... % [CL,CM]
+        SLNG(q,[4,6]) );
+    aero_synt_M(h,1) = SLNG(iA,1);
+
+    if GRF
+        plotvsM( alpha(iA),M,CL,CM );
+    end
+    h = h + 1;
 end
 
 %% Save Results
 SVF = false;
 if SVF
-save('Data\aero_database_long.mat','aero_synt','aero_synt_M','aero_synt_C');
+    save('Data\aero_database_long.mat','aero_synt','aero_synt_M','aero_synt_C');
 end
 % CA vs Re Fit
 
@@ -128,25 +143,40 @@ function [CAa,CA0,CAmax,alpham] = CAvsAoa(alpha,CA,alphalin,alpham)
     CAmax = max(CA);    % Max value of CA. FOr variables different from CL it doesnt have a meaning
     if nargin < 4
         % IF alpha_max is not passed it is evaluated. NOTE: the results is
-        % meaningful only iof CA = CL
+        % meaningful only if CA = CL
         alpham = alpha( CA==CAmax );
     end
-    
+    % Removing NaNs
+    CA = CA( ~isnan(CA) );
+    alpha = alpha( ~isnan(CA) );
+
     i = 1:length(CA);
     im = i(alpha==alpham);
+    if isempty(im) && isempty(CA)
+        % If CA is empty the values are set as NaN
+        CA = nan;
+        alpha = nan;
+    elseif isempty(im)
+        % If the value is not found BUT CA is not empty than the last alpha is taken
+        im = i(end);
+        CAmax = CA(im);
+        alpha = alpha(~(i>im)); % Excludes post stall
+        CA = CA(~(i>im));
+    end
     
-    CAmax = CA(im);
-    alpha = alpha(i<im+1); % Excludes post stall
-    CA = CA(i<im+1);
-   
-    % Linear Trait Between -6 and 6 Degrees ASSUMPTION
+    alpha = alpha(~(alpha>alphalin)); alpha = alpha(~(alpha<-alphalin));
+    CA = CA(~(alpha>alphalin)); CA = CA(~(alpha<-alphalin));
+    ord = 1;
+
+    if ~(length(CA)>ord)
+        % Works only if ord = 1
+        p2 = polyfit(alpha,CA,min( ord,length(CA)-1 ) );
+        CAa = nan; CA0 = p2
+    else
+        p2 = polyfit(alpha,CA,ord);
+        CAa = p2(1); CA0 = p2(2);
+    end
     
-    alpha = alpha(alpha<alphalin); alpha = alpha(alpha>-alphalin);
-    CA = CA(alpha<alphalin); CA = CA(alpha>-alphalin);
-    
-    p2 = polyfit(alpha,CA,1);
-    
-    CAa = p2(1); CA0 = p2(2);
 end
 
 function [CD0,K,CLcdm,plr] = polar(CL,CD,alpha,alpham)
@@ -161,43 +191,43 @@ function [CD0,K,CLcdm,plr] = polar(CL,CD,alpha,alpham)
         end
 end
 
-function ax = plotData(dF,M,Re,alpha,CL,CD,CM,CLd,CMd,synth)
-
-    %   - synth: M,Re,CD0,K,CL@CDmin,CLmax,alphamax,CLa,CL0,CMa,CM0, ,CLda, ,CMda
-    fig = figure();
-    
-    switch dF
-        case 1
-            % Stability
-            plotv = [alpha(:),CL(:),CM(:),CLd(:),CMd(:)];
-            TIT = {'CL - $\alpha$','CM - $\alpha$','CL$_{\dot{\alpha}}$ - $\alpha$',...
-                'CM$_{\dot{\alpha}}$ - $\alpha$','Polar' };
-            for i = 1:4
-                ax(i) = subplot(3,2,i);
-                plot(ax(i),plotv(:,1),plotv(:,i+1),'or' ); hold(ax(i),'on');
-                plot(ax(i),plotv(:,1),synth(8+2*(i-1))*alpha + synth(9+2*(i-1)) ...
-                    ,'--r' );
-                title(ax(i),TIT{i},'Interpreter','Latex')
-                legend(ax(i),{'Data','Linear Fit'})
-            end
-            i = i +1; ax(i) = subplot(3,2,5:6);
-            plot(ax(i),CL,CD); hold(ax(i),'on');
-            plot(ax(i),CL,synth(3)+synth(4)*(CL-synth(5)).^2,'--r')
-        case 2
-            % COntrol
-            plotv = [alpha(:),CD(:),CL(:)]; % CD is CM
-            TIT = {'\Delta CL - \delta_e','\Delta CM - \delta_e' };
-            for i = 1:2
-                ax(i) = subplot(2,1,i);
-                plot(ax(i),plotv(:,1),plotv(:,i+1),'or' ); hold(ax(i),'on');
-                plot(ax(i),plotv(:,1),CM(3+2*(i-1))*alpha + CM(4+2*(i-1)) ...
-                    ,'--r' ); % CM is synth
-                title(ax(i),TIT{i})
-                legend(ax(i),{'Data','Linear Fit'})
-            end
-    end
-    sgtitle(['Re = ',num2str(Re),' M = ',num2str(M)])
-end
+% function ax = plotData(dF,aero_synt)
+% 
+%     %   - synth: M,Re,CD0,K,CL@CDmin,CLmax,alphamax,CLa,CL0,CMa,CM0, ,CLda, ,CMda
+%     fig = figure();
+% 
+%     switch dF
+%         case 1
+%             % Stability
+%             plotv = [alpha(:),CL(:),CM(:),CLd(:),CMd(:)];
+%             TIT = {'CL - $\alpha$','Polar','CM - $\alpha$','CL$_{\dot{\alpha}}$ - $\alpha$',...
+%                 'CM$_{\dot{\alpha}}$ - $\alpha$',};
+%             for i = 1:4
+%                 ax(i) = subplot(3,2,i);
+%                 plot(ax(i),plotv(:,1),plotv(:,i+1),'or' ); hold(ax(i),'on');
+%                 plot(ax(i),plotv(:,1),synth(8+2*(i-1))*alpha + synth(9+2*(i-1)) ...
+%                     ,'--r' );
+%                 title(ax(i),TIT{i},'Interpreter','Latex')
+%                 legend(ax(i),{'Data','Linear Fit'})
+%             end
+%             i = i +1; ax(i) = subplot(3,2,5:6);
+%             plot(ax(i),CL,CD); hold(ax(i),'on');
+%             plot(ax(i),CL,synth(3)+synth(4)*(CL-synth(5)).^2,'--r')
+%         case 2
+%             % COntrol
+%             plotv = [alpha(:),CD(:),CL(:)]; % CD is CM
+%             TIT = {'\Delta CL - \delta_e','\Delta CM - \delta_e' };
+%             for i = 1:2
+%                 ax(i) = subplot(2,1,i);
+%                 plot(ax(i),plotv(:,1),plotv(:,i+1),'or' ); hold(ax(i),'on');
+%                 plot(ax(i),plotv(:,1),CM(3+2*(i-1))*alpha + CM(4+2*(i-1)) ...
+%                     ,'--r' ); % CM is synth
+%                 title(ax(i),TIT{i})
+%                 legend(ax(i),{'Data','Linear Fit'})
+%             end
+%     end
+%     sgtitle(['Re = ',num2str(Re),' M = ',num2str(M)])
+% end
 
 function ax = plotvsM(Alpha,M,CL,CM,synth)
     fig = figure();
@@ -220,4 +250,24 @@ function ax = plotvsM(Alpha,M,CL,CM,synth)
 %                     ,'--r' );
     end
     sgtitle(['\Alpha = ',num2str(Alpha)]);%,' M = ',num2str(M)])
+end
+
+function reslin = AeroLinRegs(alpha,CA,alphal,alpham)
+%RESLIN: function that returns the linear regressions for data given as
+%input
+%   INPUT
+%   - alpha: vector of alphas [deg]
+%   - CAs: vector/matrix of aerodynamic coefficients
+if nargin <3
+    alphal = max(alpha); alpham = max(alpha);
+elseif nargin < 4
+    alpham = alphal;
+end
+    nipt = length( CA(1,:) );
+    reslin = nan(1,nipt*2);
+    for iL = 1:nipt
+        % [Clb,Clp,Cnp,Clr,Cnr]
+        [reslin(2*iL-1),reslin(2*iL),~,~] = CAvsAoa(alpha,CA(:,iL),...
+            alphal,alpham);
+    end
 end
