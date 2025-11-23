@@ -1,0 +1,25 @@
+% DHV-8/100 Input File
+Q100 				% Name
+aero_database_long.mat	% Aerodynamic Model Input File
+contr_gains_clean.mat		% Controller gains 
+inertia_tensor.mat			% Inertia Tensor
+propeller_data.mat			% Propeller Data
+MASSES
+15740				% MTOM [kg]
+15649				% TAKE OFF MASS [kg]
+15377				% MAX LANDING WEIGHT [Kg]
+14061				% MZF [kg]
+GEOMETRY
+WING
+56.57					% Wing Surface [m^2]
+24.6					% Wing SPan [m]
+2.38				% Reference Chord [m]
+ENGINE
+2					% N engines
+1212				% RPM
+3.952				% Propeller Diameter [m]
+1340				% Single Engine Max Power at S/L [kW]
+9.99				% x_eng [m]
+3.94				% y_eng 
+9.99				% z_eng  measured from CG[m]
+ENDDATA

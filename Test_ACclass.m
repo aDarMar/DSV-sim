@@ -1,8 +1,9 @@
 close all; clear; clc;
 addpath('.\Data')
 addpath('.\Classes')
-nmdbs = 'aero_synt_database';
-pth = strcat(nmdbs,'.mat');
+% nmdbs = 'aero_synt_database';
+% pth = strcat(nmdbs,'.mat');
+pth = 'Data\Q100_comp.aero';
 actest = ACclass(pth);
 
 CL = -0.2:0.05:1.5;

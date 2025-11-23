@@ -15,13 +15,37 @@ classdef ACclass
         cref
         ARw
         
+        I           % Inertia Tensor [Kg m^2]
+        CG          % Center of Mass in constructive frame [m]
         
         CD0
         K
-        CLcdm       % cl@cdMIN [1/deg]
+        CLcdm       % cl@cdMIN [1/DEG]
         CLmax
+        CLa         % CL vs alpha linear slope [1/deg]
+        CL0
+        CMa         % CM vs alpha slope. Moments are referred to the center of mass [1/deg] 
+        CM0
+        CLad        % CL vs alpha dor derivative [rad^-1 s^-1]   
+        CMad
+        CLq
+        CMq
+        CMM         % dCM/dM at given Alpha
+        CLde
+        CMde
+        
+        Cyb
+        Cnb
+        Clb
+        Clp
+        Cnp
+        Clr
+        Cnr
+        
+        CL
+        CM
         polar
-
+        
         Kp
         Kb
         Ki
@@ -51,7 +75,8 @@ classdef ACclass
             %obj.Property1 = inputArg1 + inputArg2;
             
             % Masses
-            [obj,data_name,gain_file] = obj.read_input(file_name);
+            [obj,data_name,gain_file,inert_file,prop_file] = ...
+                obj.read_input(file_name);
             obj.ARw = obj.bw^2/obj.Sw;
             %% Propeller Data
             try
@@ -157,6 +182,9 @@ classdef ACclass
             
             % Polar
             obj.polar =@(M,Re,CL) obj.CD0(M,Re) + obj.K(M,Re)*( CL(:) - obj.CLcdm(M,Re) ).^2;
+            catch ERR
+                warning('Could not load Aerodynamic Data')
+            end
             % Controllers Gains
             %obj.Kp(:,:,1) = Kp; obj.Kb(:,:,1) = Kb; obj.Ki(:,:,1) = Ki;
             try
@@ -205,7 +233,7 @@ classdef ACclass
 
         end
         
-        function [obj,data_name,gain_name] = read_input(obj,dataFileName)
+        function [obj,data_name,gain_name,inertia,propeller] = read_input(obj,dataFileName)
             %READ_INPUT: Reads aircraft data from the txt file
             %   Detailed explanation goes here
             function test_block(f_id,test)
@@ -225,6 +253,8 @@ classdef ACclass
                 lin = fgetl(f_id); lin = strtok(lin,sprintf(' \t%')); obj.Name = lin; % Name
                 lin = fgetl(f_id); lin = strtok(lin,sprintf(' \t%')); data_name  = lin;
                 lin = fgetl(f_id); lin = strtok(lin,sprintf(' \t%')); gain_name  = lin;
+                lin = fgetl(f_id); lin = strtok(lin,sprintf(' \t%')); inertia  = lin;
+                lin = fgetl(f_id); lin = strtok(lin,sprintf(' \t%')); propeller  = lin;
                 % Masses
                 test_block(f_id,'MASSES');
                 lin = fscanf(f_id,'%f '); obj.MTOM = lin; fgetl(f_id);
@@ -238,6 +268,16 @@ classdef ACclass
                 lin = fscanf(f_id,'%f '); obj.Sw = lin; fgetl(f_id);
                 lin = fscanf(f_id,'%f '); obj.bw = lin; fgetl(f_id);
                 lin = fscanf(f_id,'%f '); obj.cref = lin; fgetl(f_id);
+                % Thrust
+                test_block(f_id,'ENGINE');
+                lin = fscanf(f_id,'%f '); obj.Neng = lin; fgetl(f_id);
+                lin = fscanf(f_id,'%f '); obj.RPM = lin; fgetl(f_id);
+                lin = fscanf(f_id,'%f '); obj.Dprop = lin; fgetl(f_id);
+                lin = fscanf(f_id,'%f '); obj.Pmax = lin*1000 ; fgetl(f_id);
+                obj.EnPs = nan(3,1);
+                lin = fscanf(f_id,'%f '); obj.EnPs(1) = lin; fgetl(f_id);
+                lin = fscanf(f_id,'%f '); obj.EnPs(2) = lin; fgetl(f_id);
+                lin = fscanf(f_id,'%f '); obj.EnPs(3) = lin; fgetl(f_id);
                 
                 fclose(f_id);
                 catch ERR
@@ -470,15 +510,17 @@ classdef ACclass
         end
         
         function [A,B,C,u0] = LongLinSys(obj,x0,m)
-            %LONGLINSYS: Builds the linearized dynamic model around x0
-            %   INPUT
-            %   x0 - Vettore delle varibili di stato longitudinali nella cond. di rif.
-            %       [Va,ga,h]
-            %   m - Aircraft mass around condition
-            %   OUTPUT
-            %   A
-            %   C - Output matrix, returns [VIAS;M;h;hdot] in imperial
-            %       units: VIAS in kts, h in ft, hdot fpm
+        %LONGLINSYS: Builds the linearized reduced dynamic model 
+        %around x0. The reduced model is the one based on the NAPE
+        %equations.
+        %   INPUT
+        %   x0 - Vettore delle varibili di stato longitudinali nella cond. di rif.
+        %       [Va,ga,h]
+        %   m - Aircraft mass around condition
+        %   OUTPUT
+        %   A
+        %   C - Output matrix, returns [VIAS;M;h;hdot] in imperial
+        %       units: VIAS in kts, h in ft, hdot fpm
             
             g = 9.81; gm = 1.4;
             [T, a, p, rho] = atmosisa([0,x0(3)]);
