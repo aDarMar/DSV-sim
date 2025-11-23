@@ -20,21 +20,24 @@ axx(1) = subplot( 3,1,1,'parent',fig(2) );
 axx(2) = subplot( 3,1,2,'parent',fig(2) );
 %% Alpha Sweeps
 nM = length(M); nH = length(h);
-for iM = 1:nM
-    for iH = 1:nH
-        Re = actest.ReCalc(h(iH),M(iM));
-        CL = actest.CL(M(iM),Re,alpha);
-        CD = actest.polar(M(iM),Re,CL);
-        CM = actest.CM(M(iM),Re,alpha);
-        CLda = actest.CLad(M(iM),Re,alpha);
-        CMda = actest.CMad(M(iM),Re,alpha);
-        lin = plot( ax(1),alpha,CL );
-        lin = plot( ax(2),alpha,CM );
-        lin = plot( ax(3),CL,CD );
-        
-        lin = plot( axx(1),alpha,CLda );
-        lin = plot( axx(2),alpha,CMda );
-        
-    end
-end
-plot(CL,CD)
+% for iM = 1:nM
+%     for iH = 1:nH
+%         Re = actest.ReCalc(h(iH),M(iM));
+%         CL = actest.CL(M(iM),Re,alpha);
+%         CD = actest.polar(M(iM),Re,CL);
+%         CM = actest.CM(M(iM),Re,alpha);
+%         CLda = actest.CLad(M(iM),Re,alpha);
+%         CMda = actest.CMad(M(iM),Re,alpha);
+%         lin = plot( ax(1),alpha,CL );
+%         lin = plot( ax(2),alpha,CM );
+%         lin = plot( ax(3),CL,CD );
+% 
+%         lin = plot( axx(1),alpha,CLda );
+%         lin = plot( axx(2),alpha,CMda );
+% 
+%     end
+% end
+% plot(CL,CD)
+
+x0 = [150,0,0,0,0,0,0,0,-2000,0,2*pi/180,0,15400];
+actest.LinSystComp(x0);
