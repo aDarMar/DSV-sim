@@ -50,7 +50,7 @@ for iM = 1:nM
         % Control Derivatives
         aero_synt_C(h,1:2) = [SLNG(iS,2),Re];              % [M,Re]
         aero_synt_C(h,3:6) = AeroLinRegs( CTR(iSe:iEe,1),...
-            CTR(iSe:iEe,4:5) );                             % [CMe,CM0e,CLe,CL0e]
+            CTR(iSe:iEe,4:5),15 );                             % [CMe,CM0e,CLe,CL0e]
         aero_synt_C(h,7:8) = [min(CTR(iSe:iEe,1))...
             ,max(CTR(iSe:iEe,1)) ];       % [min( deltaE ),max( deltaE ) ]
         
@@ -163,9 +163,9 @@ function [CAa,CA0,CAmax,alpham] = CAvsAoa(alpha,CA,alphalin,alpham)
         alpha = alpha(~(i>im)); % Excludes post stall
         CA = CA(~(i>im));
     end
-    
-    alpha = alpha(~(alpha>alphalin)); alpha = alpha(~(alpha<-alphalin));
-    CA = CA(~(alpha>alphalin)); CA = CA(~(alpha<-alphalin));
+
+    CA = CA(all([~(alpha>alphalin),~(alpha<-alphalin)],2)); 
+    alpha = alpha(all([~(alpha>alphalin),~(alpha<-alphalin)],2));
     ord = 1;
 
     if ~(length(CA)>ord)

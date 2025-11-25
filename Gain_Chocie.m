@@ -154,7 +154,7 @@ function main()
 
 end
 
-function [wn,zita] = OmZitaCalc(lam,A)
+function [wn,zita] = OmZitaCalcOLD(lam,A)
 lam = lam(abs(lam)~=0); nlam = length(lam);
 wn = nan(nlam,1); zita = wn;
 for ic = 1:nlam

@@ -30,7 +30,7 @@ for i = 1:3
         end
     end
 end
-
+I(2,1) = I(1,2); I(3,1) = I (1,3); I(3,2) = I(2,3);
 %% Save Data
 SVF = false;
 if SVF
