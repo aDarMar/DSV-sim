@@ -65,57 +65,10 @@ function main(Aero)
         if abs(f) > 1e-6
             error('Minimum is not zero for f, trim not found')
         end
-
-
-
-
     end
-
-
-    %[~,~,~,~,x1,angl] = Aero.LinSysComp([V0,x0(5),-x0(9),x0(13)]);
-    %x1(1) = V0*cos(angl(1)); x1(3) = V0*sin(angl(1));
-    %dx2 = Aero.DynEqs6DoF(x1,[angl(3),angl(2)]);
-
-    
-
-
-
-
-
-
-
-
-
-
-
-
-%% 
-    % % [Alon,Blon,Alatdir,Blatdir,x0,angl] = Aero.LinSysComp([V0,x0(5),-x0(9),x0(13)]);
-    % % dx0 = zeros(13,1);
-    % % dx0(1) = x0(1)*0.1*0; 
-    % t0 = 0; tfin = 500; nt = 200; 
-    % % tvec = linspace(t0,tfin,nt);
-    % % 
-    % % u0 = [1;angl(2);0;0];
-    % dx0 = 0;
-    % 
-
-    % % xl = freeResp(Alon,dx0,'lonred',tvec2);
-    % % xl = x0' + real(xl);
-    % xl = xnl*0 + x0';
-    % %% Plots
-    % plotv = [tvec2,xnl,xl];
-    % figS = [ ones(13,2), (2:14)', (115:127)' ]; % [figID,xidx,yidx1,yidx2]
-    % %figS(4:7,4) = 114:117;% u,w,q,teta
-    % IMTIT = {'State Variables'};
-    % TIT = {'u','v','w','p','q','r','x_{CG}','y_{CG}','z_{CG}','\psi',...
-    %     '\theta','\phi','m'};
-    % LG = repmat({'-'},13,2);
-    % PlotPerImag( plotv,5,figS,IMTIT,LG,TIT )
 
     %% Linearization
     [Alng,Blng,MTlong,Altd,Bltd,x0s] = Aero.LinSysComp(x0,u0);
-    % [V,D] = eig(Alng);
     ik = 5; MTlong = eye(6);
     dx0s = zeros(13,1);
     [~,Mod] = freeResp( Alng,dx0s,'lon',MTlong,[] );
@@ -143,7 +96,7 @@ function main(Aero)
     end
     % Nonlinear Forces
     [F,FA,FT,FW] = Aero.Forces(xnl',u0,tvec);
-    GRF = true;
+    GRF = false;
     if GRF
         plotv = [tvec,xnl,temp,F',FA',FT',FW'];
         figS = [ ones(13,2), (2:14)', (115:127)' ]; % [figID,xidx,yidx1,yidx2]
@@ -161,7 +114,24 @@ function main(Aero)
         end
         PlotPerImag( plotv,3,figS,IMTIT,LG,TIT )
     end
-    
+    %% Root Locus
+    % dCLda,dCMda,dCMdad,dCLdad,dCLdq,dCMdq
+    SWP(1).lbnd = 0.3; SWP(1).ubnd = 1; SWP(1).n = 20;
+    SWP(2).lbnd = 0.3; SWP(2).ubnd = 1; SWP(2).n = 20;
+    i = 2;
+    VarSpan = nan(6,SWP(i).n); Sols = nan(6,SWP(i).n);
+    VarSpan(i,:) = linspace( SWP(i).lbnd,SWP(i).ubnd,SWP(i).n );
+    Vst = [];
+    for j = 1:SWP(i).n
+        [Atmp,~,~,~,~,~] = Aero.LinSysComp( x0,u0,VarSpan(:,j) );
+        [V,D] = eig(Atmp); 
+        [Sols(:,j) ,Vst] = sortMod(Vst,V,D);
+        
+        
+        %Sols(:,j) = diag(D);
+    end
+    plot( real(Sols),imag(Sols),'*r' )
+
 end
 %% Functions
 function [Xs,Md] = freeResp(A,x0,flg,MLNG,MLTD,tvec)
@@ -226,4 +196,43 @@ function [Md,ModPF] = ModalPrp(A,x0,MLNG)
 
 end
 
+function [EiOr,Vst] = sortMod(Vst,V,D)
+    nEg = length(D(:,1)); EiOr = nan(nEg,1);
+    if ~isempty(Vst)
+        idx = EiOr;
+        for iE = 1:nEg
+            Vt = V( abs( V(:,iE) )>0,iE );
+            V(:,iE) = V(:,iE)*sign( Vt(1) );
+            if imag(D(iE,iE)) ~= 0
+                 V(:,iE) = V(:,iE)*sign(imag(D(iE,iE)));% It should avoid the sign change
+            end
+            nm = ctranspose(V(:,iE))*V(:,iE);
+            V(:,iE) = V(:,iE)/nm;
+            prJ = abs( transpose( V(:,iE) )*Vst(:,1) );
+            prM = prJ;
+            idx(iE) = 1;
+            for k = 2:nEg
+                prJ = abs( transpose( V(:,iE) )*Vst(:,k) );
+                if prJ > prM
+                    prM = prJ;
+                    idx(iE) = k;
+                end
+            end
+            EiOr( idx(iE) ) = D(iE,iE);
+        end
+    else
+        for iE = 1:nEg
+            Vt = V( abs( V(:,iE) )>0,iE );
+            nm = ctranspose(V(:,iE))*V(:,iE);
+            V(:,iE) = V(:,iE)*sign( Vt(1) );
+            if imag(D(iE,iE)) ~= 0
+                 V(:,iE) = V(:,iE)*sign(imag(D(iE,iE)));% It should avoid the sign change
+            end
+            V(:,iE) = V(:,iE)/nm;
+
+        end
+        EiOr = diag(D);
+    end
+    Vst = V;
+end
 

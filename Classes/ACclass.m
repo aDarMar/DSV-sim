@@ -433,12 +433,14 @@ classdef ACclass
             V = M*a; RE = V*obj.cref*rho/mu;
         end
         
-        function [Alon2,Blon,MTlong,Alatdir,Blatdir,x0] = LinSysComp(obj,x0b,u0)
+        function [Alon2,Blon,MTlong,Alatdir,Blatdir,x0] = LinSysComp(obj,x0b,u0,CMov)
         %LINSYSCOMP: Function that builds the matrices for the complete
         % linearised aircraft model. Equations are in stability axes
         %    INPUT
         %    - x0b: [u,v,w,p,q,r,x,y,z,psi,teta,phi,m] in body axes in an
         %        equilibrium condition
+        %    - CMov: if specified, it overrides some aerodynamic data. 
+        %           [ dCLda,dCMda,dCMdad,dCLdad,dCLdq,dCMdq ]
         %    OUTPUT
         %    - x0: [u,v,w,p,q,r,x,y,z,psi,teta,phi,m] in stability axes in
         %       the reference trimemd condition
@@ -501,6 +503,27 @@ classdef ACclass
 
             dCLdq = obj.CLq(M,Re);                                  % PROBLEMA
             dCMdq = obj.CMq(M,Re);
+            
+            function Sost = substVal(dCMi,i)
+                if isnan(CMov(i))
+                    Sost = dCMi;
+                else
+                    Sost = CMov(i);
+                end
+            end
+            if nargin > 3
+                disp('Overriding Calculated Data with Manual Input')
+                % dCLda,dCMda,dCMdad,dCLdad,dCLdq,dCMdq
+                dCLda = substVal(dCLda,1);
+                dCDda = 2*obj.K(M,Re)*( CLc - obj.CLcdm(M,Re) )*dCLda;  % Parabolic polar slope
+                dCMda = substVal(dCMda,2);
+                % Unsteady
+                dCMdad = substVal(dCMdad,3);
+                dCLdad = substVal(dCLdad,4);
+                % Dynamic
+                dCLdq = substVal(dCLdq,5);                                
+                dCMdq = substVal(dCMdq,6);  
+            end
 
             % u derivatives
             Xu = K1/x0(1)*( 2*x0(13)*g/(q0*obj.Sw)*sin(x0(11)) + ...
