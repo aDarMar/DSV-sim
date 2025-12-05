@@ -11,10 +11,10 @@ close all; clear; clc;
 addpath('Data')
 addpath('Classes')
 addpath('Functions')
+addpath('C:\Users\Ospitio\Documents\Scripts\src') % TEMPORANEO SOLO PER PLOT2TIKZ
+load('longitudinal_database_trimmed.mat')
 
-load('longitudinal_database.mat')
-
-nmfl = "Q100_comp.aero"; AC = ACclass(nmfl);
+nmfl = "Q100_simp.aero"; AC = ACclass(nmfl);
 
 nA = 20; ndE = 9; nM = 4; nh = 9;
 k = 1; h = 1; kk = 1;
@@ -97,15 +97,30 @@ for iM = 1:nM
 
             %plotv = [plotv,CL,CD,graf];
             figS = [ ones(12,1),[1,2,ones(1,8),ones(1,2)*22]',...
-                [(302:311),323:324]',[(112:121),125:126]' ];
+                [(2:11),23:24]',[(12:21),25:26]' ];
             % 
             IMTIT = {'Stability Derivatives'};
             LG = repmat({'-'},12,2);
-            TIT = {'CL - $\alpha$','Polar','CM - $\alpha$','CL$_{\dot{\alpha}}$ - $\alpha$',...
-                    'CM$_{\dot{\alpha}}$ - $\alpha$','Cl_\beta - \alpha','Cl_p - \alpha',...
+            
+            TIT = {'C$_L$ - $\alpha$','Polar','C$_\mathcal{M}$ - $\alpha$','C$_L_{\dot{\alpha}}$ - $\alpha$',...
+                    'C$_{\mathcal{m}_{\dot{\alpha}}}$ - $\alpha$','Cl_\beta - \alpha','Cl_p - \alpha',...
                     'Cn_p - \alpha','Cl_r - \alpha','Cn_r - \alpha','CM_{\delta_E} - \delta_E',...
                     'CL_{\delta_E} - \delta_E'};
-            PlotPerImag( plotv,5,figS,IMTIT,LG,TIT )
+            LINS = repmat({'o','--'},12,1);
+            XLAB = repmat({'$\alpha$ [deg]'},10,1); XLAB = [XLAB;repmat({'$\delta_e$ [deg]'},2,1)]; 
+            XLAB{2} = '$C_L$';
+            YLAB = {'$C_L$','$C_D$','C$_\mathcal{M}$','C$_{L_{\dot{\alpha}}}$','C$_{\mathcal{M}_{\dot{\alpha}}}$',...
+                'C$_{\mathcal{L}_\beta}$','C$_{\mathcal{L}_p}$','C$_{\mathcal{N}_p}$','C$_{\mathcal{L}_r}$',...
+                'C$_{\mathcal{N}_r}$','C$_{L_{\delta_e}}$','C$_{\mathcal{M}_{\delta_e}}$' };
+            plotd = DataPlot(plotv);
+            for ig = 1:length(XLAB)
+                plotd = plotd.definePlot(figS(ig,2),figS(ig,3:end),figS(ig,1),'legend',LG(ig,:),...
+                    'grid','minor','xlabel',XLAB{ig},...
+                    'ylabel',YLAB{ig},'linestyle',LINS(ig,:));
+            end
+
+            plotd.PlotPerImag( 3,IMTIT,...
+                {strcat( 'M = ',num2str(SLNG(iS,2)),' Re = ',num2str( round( Re,0 ) ) )},'cartesian',false );
 
         end
         h = h + 1;

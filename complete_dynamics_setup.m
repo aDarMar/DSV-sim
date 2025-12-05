@@ -13,7 +13,7 @@ main()
 function main()  
     CfrLin = true;
     %% Aircraft Definition
-    nmfl = "Q100.aero"; AC = ACclass(nmfl);
+    nmfl = "Q100_simp.aero"; AC = ACclass(nmfl);
     AC.lat = [2*1*1;1;2];% TEMPORANEOOOO 2*zita*wn,wn^2,...
     GEO = GeoClass();
     %% Waypoints
@@ -245,7 +245,8 @@ function main()
             tres = [tres;t(end,:)]; xres = [xres;x(end,:)];
             x_aux = out_store();
             %x_debug = out_step();
+            
             plot_results(AC,CHS,tres,xres,x_aux,y_way...
-                ,[],[],[],[],[],store_way,GEO);
+                ,store_way,[],[],[],[],[],GEO);
     end
 end

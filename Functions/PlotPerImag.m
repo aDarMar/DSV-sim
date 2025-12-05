@@ -1,9 +1,19 @@
-function [fig,ax] = PlotPerImag(pvec,nsbp,figS,NFIG,Leg,TIT)
+function [fig,ax] = PlotPerImag(pvec,nsbp,GRF) %figS,NFIG,Leg,TIT)
 %PLOTPERIMAG Summary of this function goes here
 %   Detailed explanation goes here
 %   INPUT
-%   -pvec: vector of data to plot. Data is plotted alogn columns
+%   -pvec: vector of data to plot. Data is plotted along columns
 %   - nsbp: number of subplot desird for image
+%   - GRF : struct containing data info
+%       GRF(i) -
+%               |_ fig - numer of figure
+%               |_ x
+%               |   |_ label - xlabel, string
+%               |   |_ idx   - index of the plotv column to plot as x
+%               |   |_ leg   - legend 
+%               |_ y
+%               |   |_ label - ylabel, string
+%               |   |_ idx   - index of the plotv column to plot as x
 %   - figS: array containing indices to plot: [IDXfig,IDXx,IDXy]
 %           IDXfig: index of the figure (i.e. plot on figure 1)
 %           IDXx: index of x values
@@ -15,11 +25,14 @@ function [fig,ax] = PlotPerImag(pvec,nsbp,figS,NFIG,Leg,TIT)
 %   - TIT: Titles of Subplots
 %   - STTIT: Titles of Group of Subplots (i.e. Sgtitle)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    FLEG = 16; FLAB = 16;
     j  = 1;                                 % Plot Counter
     kk = 1;                                 % ax counter
     k2 = 1;
     cnm = 1;
     nfig = max( figS(:,1) );                % number of figures required
+
+    
     ifa = 1;
     for ifi = 1:nfig
         % Figures
@@ -40,13 +53,20 @@ function [fig,ax] = PlotPerImag(pvec,nsbp,figS,NFIG,Leg,TIT)
             nsplot = min(nplt - nsbp*(j-1),nsbp);                   % Number of subplot per figure
     
             for k = 1:nsplot
-                cax = k + nsbp*(j-1);
+                cax = k + nsbp*(j-1);                               % cax: number of plots per figure
     
                 idxs = figS( kk,~isnan(figS(kk,:)) );               % Save indices of columns to plot
                 idxs = idxs(2:end);                                 % Skips the figure ID
+                % Axes Properties
                 ax(ifi,cax) = ...                                   % [figure,ax(1) .. ax(n) ]
                     subplot(nsplot,1,k,'Parent',fig(ifa));
                 hold(ax(ifi,cax),'on');
+                xlabel( ax(ifi,cax),GRF(ifi).xlab{cax},...
+                    "FontSize",FLAB,"Interpreter","latex" );
+                
+
+
+
                 legf = true;
                 for l = 2:length(idxs)                              % Cycle for lines to plot
                     tmpf = plotting(pvec,idxs(1),idxs(l),ax(ifi,cax),  ...
@@ -55,7 +75,7 @@ function [fig,ax] = PlotPerImag(pvec,nsbp,figS,NFIG,Leg,TIT)
                 end
                 title( ax(ifi,cax),TIT{cnm} );
                 if legf
-                    legend( ax(ifi,cax) );
+                    legend( ax(ifi,cax),'Interpreter','latex','FontSize',FLEG );
                 end
                 kk = kk+1; cnm = cnm + 1;
             end
