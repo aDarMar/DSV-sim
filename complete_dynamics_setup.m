@@ -158,7 +158,7 @@ function main()
             out_store = storefun(nan(1,ns)); % CONTROLLARE SE FUNZIONANO E INIZIALIZZARE
             % out_step = storefun(nan(1,10));     % ID,Vc,hdotc,Kh,Vd,CL,T,x*,x*@dt<0
             % x: [Va.ga,h,m,CL,T,Vd,Psi,Phi,p,mu,lng]
-            tstt = 2;
+            tstt = 4;
             switch tstt
                 case 1
                     % Two segments
@@ -194,9 +194,22 @@ function main()
                     ways(i).Az = -70;
                     i = 3; ways(i).lat = 36.55; ways(i).lng = 17.22;
                     ways(i).t = 1; ways(i).PsiE = 20;
+                case 4
+                    % Longitudinal only
+                    Vs = [100,120,140,140];
+                    gas = [0,0,0,0];
+                    hs = [4500,4500,5500,4500];
+                    ms = ones(4,1)*15400;
+                    ways(1).ID = "Init"; ways(2).ID = "C2F";
+                    ways(3).ID = 'C2F'; ways(4).ID = 'C2F';
+                    i = 1; ways(i).lat = 36.2; ways(i).lng = 17.9;
+                    i = 2; ways(i).lat = 37.0; ways(i).lng = 17.9; ways(i).Az = 0;
+                    i = 3; ways(i).lat = 38.0; ways(i).lng = 17.9; ways(i).Az = 0;
+                    i = 4; ways(i).lat = 39; ways(i).lng = 17.9; ways(i).Az = 0;
+
                     
             end
-            Tfin = 1500;                                            % Final time
+            Tfin = 2500;                                            % Final time
             te = 0;                                                 % Starting time
             [x_way,y_way,ye,bounds,temp] = BuildWaypoint(GEO,AC,Vs,gas,hs,...
                 ms,ways,te,true);                                   % Initial condition
