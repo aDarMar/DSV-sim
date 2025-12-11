@@ -64,7 +64,12 @@ classdef DataPlot %< handle
                 1, 1, 0;      % Giallo
                 1, 0.5, 0;    % Arancione
                 0.5, 0, 0.5   % Viola
-                ];
+                229, 65, 56
+                229, 151, 56
+                220, 229, 56
+                56, 220, 229
+                65, 56, 229];
+            obj.COLS(9:end,:) = obj.COLS(9:end,:)/255;
 
         end
         
@@ -131,7 +136,7 @@ classdef DataPlot %< handle
                     if dint(1) < 1e-3
                         dint(1) = 1;
                     end
-                    if dint(2) < 1e-3
+                    if dint(2) < 1e-4
                         dint(2) = 1;
                     end
                     default([2,4]) = default([2,4]) + dint*ks;
@@ -197,7 +202,7 @@ classdef DataPlot %< handle
             end
         end
         
-        function [fig,obj] = PlotPerImag(obj,nsbp,figTitle,plotFigTit,kind,SAVF)
+        function [fig,obj,hAxes] = PlotPerImag(obj,nsbp,figTitle,plotFigTit,kind,SAVF)
             %   INPUT
             %   - nsbp: number of subplots per row and colum. If only one
             %       dimension is passed, it is assumed it's for rows
@@ -208,7 +213,6 @@ classdef DataPlot %< handle
             if isscalar(nsbp)
                 nsbp = [nsbp,1];
             end
-            FLEG = 16; FLAB = 16; FTIT = 16;        % Legend, label, Title Font dimensions
             kk = 1;                                 % plots counter
             k2 = 1;
             cnm = 1;
@@ -295,6 +299,7 @@ classdef DataPlot %< handle
                 
                         legf = true;
                         switch kind
+
                             case 'cartesian'
                                 xlabel( hAxes{k},obj.xlabl{kk},...
                                     "FontSize",obj.fontdim.FLAB,"Interpreter","latex" );
@@ -517,24 +522,30 @@ classdef DataPlot %< handle
         
         obj = obj.definePlot( Reidx(1),imagIdx(1),1,'xlabel','Real','ylabel','Imag',...
             'title',strcat('Root Locus ',Gain_name) );                 % Initialize graphics
-        [fig,axR] = obj.PlotPerImag( [1,1],IMSAV,IMTIT,'cartesian',false );
+        [fig,obj,axR] = obj.PlotPerImag( [1,1],IMSAV,IMTIT,'cartesian',false );
+        axR = axR{1};
         annIdx = nan(10,obj.nplotmax*0.5);      % Indices where the data must be displayed
         annIdx(1,:) = ones(1,obj.nplotmax*0.5);
         annIdx(end,:) = ones( 1,obj.nplotmax*0.5)*length(obj.plotv(:,1) );
         for i = 1:obj.nplotmax*0.5
             obj.definePlot( Reidx(i),imagIdx(i),1 )
            % Root Locus Branches
-            obj.plotting( 'cartesian',obj.plotv,2*i-1,2*i,axR{1},'-',i,'-');
-            obj.plotting( 'cartesian',obj.plotv(1,:),2*i-1,2*i,axR{1},'-',i,'o');
+            obj.plotting( 'cartesian',obj.plotv,2*i-1,2*i,axR,'-',i,'-');
+            obj.plotting( 'cartesian',obj.plotv(1,:),2*i-1,2*i,axR,'-',i,'x');
             % Find Break-in and Crossover Points
-            flg1 = false; flg2 = false;
-            for j = 2:length( obj.plotv(:,1) ) % Break in
-                if ~(obj.plotv(j,2*i)*obj.plotv(j-1,2*i))>0 && ~flg1
-                    annIdx(2,i) = j;
+            flg1 = false; flg2 = false; k = 1;
+            for j = 2:length( obj.plotv(:,1) ) % Break in/away
+                if j == 174
+                    disp('a')
+                end
+                if ~(obj.plotv(j,2*i)*obj.plotv(j-1,2*i)>0) && any(obj.plotv(j-1:j,2*i) > 0,1)
+                    annIdx(1+k,i) = j;
                     flg1 = true;
-                elseif ~(obj.plotv(j,2*i-1)*obj.plotv(j-1,2*i-1))>0 && ~flg2 % Crossover
-                    annIdx(3,i) = j;
+                    k = k+1;
+                elseif ~(obj.plotv(j,2*i-1)*obj.plotv(j-1,2*i-1)>0) && any(obj.plotv(j-1:j,2*i-1) > 0,1) % Crossover
+                    annIdx(1+k,i) = j;
                     flg2 = true;
+                    k = k+1;
                 end
             end
 
@@ -543,30 +554,30 @@ classdef DataPlot %< handle
         annIdx = unique(annIdx);
 
         % Adjust Limits
-        axR{1}.XLim = [ min(min(obj.plotv(:,Reidx))),max(max(obj.plotv(:,Reidx))) ];
+        axR.XLim = [ min(min(obj.plotv(:,Reidx))),max(max(obj.plotv(:,Reidx))) ];
         if min(min(obj.plotv(:,imagIdx))) == max(max(obj.plotv(:,imagIdx)))
-            axR{1}.YLim = [ -0.1,0.1 ];
+            axR.YLim = [ -0.1,0.1 ];
         else
-            axR{1}.YLim = [ min(min(obj.plotv(:,imagIdx))),max(max(obj.plotv(:,imagIdx))) ];
+            axR.YLim = [ min(min(obj.plotv(:,imagIdx))),max(max(obj.plotv(:,imagIdx))) ];
         end
         % Notes
         ks = 1e-2;
-        a = 30*pi/180; dl = axR{1}.YLim(2) - axR{1}.YLim(1) ;
-        a = atan( dl/(axR{1}.XLim(2) - axR{1}.XLim(1) ) );
-        dl = dl^2 + ( axR{1}.XLim(2) - axR{1}.XLim(1) )^2; dl = sqrt(dl)*ks;
+        a = 30*pi/180; dl = axR.YLim(2) - axR.YLim(1) ;
+        a = atan( dl/(axR.XLim(2) - axR.XLim(1) ) );
+        dl = dl^2 + ( axR.XLim(2) - axR.XLim(1) )^2; dl = sqrt(dl)*ks;
         for j = 1:length( annIdx(:,1) )
             for i =1:obj.nplotmax*0.5
                 
                 if ~isnan( annIdx(j) )
                     xax = obj.plotv(annIdx(j),2*i-1)-cos(a)*dl;
                     yax = obj.plotv(annIdx(j),2*i)-sin(a)*dl;
-                    plot(axR{1},[obj.plotv(annIdx(j),2*i-1),xax],...
+                    plot(axR,[obj.plotv(annIdx(j),2*i-1),xax],...
                         [obj.plotv(annIdx(j),2*i),yax],'-k','LineWidth',0.6 );
-                    text(axR{1},xax,yax ,strcat( Gain_name,' = ',...
+                    text(axR,xax,yax ,strcat( Gain_name,' = ',...
                         num2str( Gain(annIdx(j) ) ) ),'Interpreter','Latex',...
                         'FontSize',obj.fontdim.FLAB);
                 end
-                
+                obj.addModalProp(axR); % Add is damping and wn lines
                 % fig.Position
                 % % Normalize Position
                 % xarrow = [obj.plotv(j,2*i-1)-cos(a)*dl,obj.plotv(j,2*i-1)] - axR{1}.XLim(1);
@@ -583,33 +594,7 @@ classdef DataPlot %< handle
         % Data 
         %tanb = linspace( 0,100,10 ); % 
         %
-        tanb = linspace(0,axR{1}.YLim(2),5);
-        %zitav = cos(atan(tanb));
-        zitav = 0:0.5:1;
 
-        wn = linspace( 0.1,abs(axR{1}.XLim(1)),10 );%max( max( abs( obj.plotv(Reidx,:) ) ) ),30 );
-        x = [axR{1}.XLim(1),0];
-        for i = 1:length(zitav)
-            tanb(i) = sqrt(1 - zitav(i)^2)/zitav(i);
-            y = tanb(i) * x; % y = m*x line for constant damping
-            plot(axR{1},x,y,'LineWidth',0.5,'Color',[1,1,1]*219/256);
-            plot(axR{1},x,-y,'LineWidth',0.5,'Color',[1,1,1]*219/256);
-            text( (x(end)+x(1))*0.5,(y(end)+y(1))*0.5,strcat('$\zeta = $',...
-                num2str(round(zitav(i),3) ) ),'Interpreter','latex','FontSize',obj.fontdim.FLAB );
-        end
-        zitav = linspace(0.01,1,500);
-        for i = 1:length(wn)
-            x = -wn(i)*zitav; y = wn(i)*sqrt(1-zitav);
-            plot(axR{1},x,y,'LineWidth',0.5,'Color',[1,1,1]*219/256);
-            plot(axR{1},x,-y,'LineWidth',0.5,'Color',[1,1,1]*219/256);
-            % wn labels are alignet to a straight line connecting the
-            % origin to the bottom left corner
-            alab = axR{1}.YLim(1)/axR{1}.XLim(1);           % slope of the straight line
-            text( x(end), alab*x(end) ,...
-                strcat('$\omega_n = $',...
-                num2str(round(wn(i),2) ) ),'Interpreter','latex',...
-                'FontSize',obj.fontdim.FLAB );
-        end
 
         if SAVF
             % Saves figures in an output folder
@@ -648,8 +633,178 @@ classdef DataPlot %< handle
             % end
 
         end
-        
-        
+
+        function axR = addModalProp(obj,axR)
+        %ADDMODALPROP: function that adds the lines of constant damping
+        % and angular frequency to a root locus/complex plane
+        % eigenvalues plot
+            tanb = linspace(0,axR.YLim(2),5);
+            %zitav = cos(atan(tanb));
+            zitav = 0:0.1:1;
+
+            wn = linspace( 0.1,abs(axR.XLim(1)),10 );%max( max( abs( obj.plotv(Reidx,:) ) ) ),30 );
+            x = [axR.XLim(1),0];
+            %% Iso Zeta Lines
+            for i = 1:length(zitav)
+                tanb(i) = sqrt(1 - zitav(i)^2)/zitav(i);
+                y = tanb(i) * x; % y = m*x line for constant damping
+                plot(axR,x,y,'LineWidth',0.5,'Color',[1,1,1]*219/256);
+                plot(axR,x,-y,'LineWidth',0.5,'Color',[1,1,1]*219/256);
+                text( axR,(x(end)+x(1))*0.5,(y(end)+y(1))*0.5,strcat('$\zeta = $',...
+                    num2str(round(zitav(i),3) ) ),'Interpreter','latex','FontSize',obj.fontdim.FLAB );
+            end
+            %% Iso Omega n Circles
+            zitav = linspace(0.01,1,500);
+            for i = 1:length(wn)
+                x = -wn(i)*zitav; y = wn(i)*sqrt(1-zitav.^2);
+                plot(axR,x,y,'LineWidth',0.5,'Color',[1,1,1]*219/256);
+                plot(axR,x,-y,'LineWidth',0.5,'Color',[1,1,1]*219/256);
+                % wn labels are alignet to a straight line connecting the
+                % origin to the bottom left corner
+                alab = axR.YLim(1)/axR.XLim(1);           % slope of the straight line
+                xwn = max( x )*0.3 + min( x )*0.7;
+                text( axR,xwn, alab*xwn ,...
+                    strcat('$\omega_n = $',...
+                    num2str(round(wn(i),2) ) ),'Interpreter','latex',...
+                    'FontSize',obj.fontdim.FLAB );
+            end
+        end
+        % % % function [fig,hAx] = trajectoryPlot(obj,kind,varargin)
+        % % %     %TRAJECTORYPLOT: function that plots the trajectory of the
+        % % %     % aircraft.
+        % % %     %   INPUT
+        % % %     %   - x,y,z: coordinates of the aircraft in a given reference frame
+        % % % 
+        % % %     % Plot Waypoints
+        % % %     %%Rw = wayid(); FINIREEEE AGGIUNGERE WAYPOINTS
+        % % %     %%plot3(axG,Rw(:,1),Rw(:,2),Rw(:,3),'or','MarkerSize',5);              % Markers plot
+        % % % 
+        % % %     p = inputParser;
+        % % % 
+        % % %     function p = flagcheck(a)
+        % % %         if ~strcmp(a,'ECEF') && ~strcmp(a,'NED') ...
+        % % %                 && ~strcmp(a,'NEDi')
+        % % %             p = true;
+        % % %         else
+        % % %             p = false;
+        % % %         end
+        % % %     end
+        % % %     addRequired(p,'kind',@flagcheck);
+        % % %     addParameter(p,'psi',0,@isnumeric)
+        % % %     addParameter(p,'theta',0,@isnumeric)
+        % % %     addParameter(p,'phi',0,@isnumeric)
+        % % % 
+        % % %     function q = quiverPlot(ax,R,U)
+        % % %     %QUIVERPLOT:
+        % % %     %   INPUT
+        % % %     %   - R: [Rx,Ry,Rz] Coordinates of origin
+        % % %     %   - U: [Ux,Uy,Uz]
+        % % %     % ----------------------------------------------------------- %
+        % % %         nl = length( R(:,1) );
+        % % %         if nl ~= length( U(:,1) )
+        % % %             error('R and U have different dimensions')
+        % % %         end
+        % % %         for iG = 1:nl
+        % % %             q(iG) = quiver3( ax,R(iG,1),R(iG,2),R(iG,3),...
+        % % %                 U(iG,1),U(iG,2),U(iG,3),'LineWidth',1.5,'Color',cls(iG,:) );
+        % % %         end
+        % % % 
+        % % %     end
+        % % %     fig = figure();         % figure definition
+        % % %     set( fig, 'Units', 'normalized', ...
+        % % %                 'Position', [0.1,0.1,0.8,0.8] ) ;
+        % % %     vers = eye(3);          % Identity Matrix used for plot and versors
+        % % %     scl = 10e2;             % Scale Factor
+        % % %     %ptidx = choosePts(Rs);
+        % % %     hAx = obj.defineAxes(1,1,fig,'normal');     % Axes Definition
+        % % %     switch kind
+        % % %         case 'ECEF'
+        % % %         % Trajectory plot in ECEF coordinates, with NED and Body
+        % % %         % Reference Systems
+        % % %         %   INPUT
+        % % %         %       - x,y,z trajectory components in ECEF coordinates
+        % % % 
+        % % %             % Plot Attitude
+        % % %             addParameter(p,'mu',0,@isnumeric)
+        % % %             addParameter(p,'lat',0,@isnumeric)
+        % % %             addParameter(p,'h',0,@isnumeric)
+        % % % 
+        % % %             parse(p,kind,GEO,varargin{:})
+        % % % 
+        % % %             Rgt = GEO.LatLon2Vec(p.Results.mu,p.Results.lat,0);             % Ground Track Trajectory
+        % % %             Rs = GEO.LatLon2Vec(p.Results.mu,p.Results.lat,...
+        % % %                 p.Results.h );                                              % Trajectory in ECEF coordinates
+        % % %             obj.plotting3D(Rgt,1,2,3,hAx,'--');
+        % % %             obj.plotting3D(Rs,1,2,3,hAx,'-');
+        % % %             for i = 1:3
+        % % %                 % Ground Track
+        % % %                 UsN = GEO.NED2DIS( vers(:,i),'N2E',p.Results.mu(ptidx),...
+        % % %                     p.Results.lat(ptidx) );                                 % Local NED Axes
+        % % %                 q = quiverPlot( ax,Rgt(ptidx,:),UsN(ptidx,:),i )*scl;       % Plot Local NED and Origin on the ground track
+        % % %                 % Trajectory
+        % % %                 UsB = AC.body2NED(vers(:,i),'B2N',p.Results.psi(ptidx),...
+        % % %                     p.Results.theta(ptidx),p.Results.phi(ptidx) );          % Body in NED
+        % % %                 UsB = GEO.NED2DIS(UsB,'N2E',p.Results.mu(ptidx),...         % NED to ECEF
+        % % %                     p.Results.lat(ptidx) )*scl;
+        % % %                 q = quiverPlot( ax,Rs(ptidx,:),UsB(ptidx,:),i );            % Plot Body and CG
+        % % %             end
+        % % % 
+        % % %         case 'NEDi'
+        % % %         % Trajectory in initial NED Coordinates
+        % % %         %   INPUT
+        % % %         %       - x,y,z trajectory components in ECEF coordinates
+        % % %         %       -
+        % % %         % ---------------------------------------------------- %
+        % % % 
+        % % %             Rgt = GEO.LatLon2Vec(p.Results.mu,p.Results.lat,0);             % Ground Track Trajectory
+        % % %             Rs = GEO.LatLon2Vec(p.Results.mu,p.Results.lat,...
+        % % %                 p.Results.h );                                              % Trajectory in ECEF coordinates
+        % % %             % Trajectory
+        % % %             Rs = Rs - Rgt(1,:);                                             % Position Vector @ the NED at t0
+        % % %             Rs = GEO.NED2DIS(Rs','E2N',x(1,11),x(1,12)); Rs = Rs';          % Position in NED at t0
+        % % %             % Same with Ground Track
+        % % %             Rgt = Rgt - Rgt(1,:);
+        % % %             Rgt = GEO.NED2DIS(Rgt','E2N',x(1,11),x(1,12)); Rgt = Rgt';
+        % % %             obj.plotting3D(Rgt,1,2,3,ax,'--');
+        % % %             obj.plotting3D(Rs,1,2,3,ax,'-');
+        % % %             for i = 1:3
+        % % %                 UsB = AC.body2NED(vers(:,i),'B2N',p.Results.psi(ptidx),...
+        % % %                     p.Results.theta(ptidx),p.Results.phi(ptidx) );          % Body in NED
+        % % %                 q = quiverPlot( ax,Rs(ptidx,:),UsB(ptidx,:),i );            % Plot Body and CG
+        % % %             end
+        % % % 
+        % % %         case 'NED'
+        % % %         % Trajectory in Initial NED assumed as inertial frame
+        % % %         %   INPUT
+        % % %         %   - x,y,z: coordinates of the CG in the NED
+        % % %         %   - psi,theta,phi: Euler angles from Body to NED
+        % % %         % --------------------------------------------------- %
+        % % %             addParameter(p,'x',0,@isnumeric)
+        % % %             addParameter(p,'y',0,@isnumeric)
+        % % %             addParameter(p,'z',0,@isnumeric)
+        % % % 
+        % % %             parse(p,kind,GEO,varargin{:})
+        % % % 
+        % % % 
+        % % % 
+        % % % 
+        % % % 
+        % % % 
+        % % % 
+        % % % 
+        % % %             axG(2).ZDir = 'reverse';
+        % % %     end
+        % % %     axis( [ min([Rs(:,1);Rgt(:,1)]),max([Rs(:,1);Rgt(:,1)]),...
+        % % %         min([Rs(:,2);Rgt(:,2)]),max([Rs(:,2);Rgt(:,2)]),...
+        % % %         min([Rs(:,3);Rgt(:,3)]),max([Rs(:,3);Rgt(:,3)])] );
+        % % % end
+        % % % 
+        % % % function p = plotting3D(obj,plotv,xidx,yidx,zidx,ax,lst)
+        % % % 
+        % % %     p = plot3( ax,plotv(:,xidx),plotv(:,yidx),plotv(:,zidx),...
+        % % %         'LineStyle',lst );
+        % % % 
+        % % % end
         % % % https://www.mathworks.com/matlabcentral/answers/233818-how-to-create-subplots-with-little-vertical-spacing
         % % load clown ;
         % % 
