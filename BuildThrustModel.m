@@ -37,7 +37,7 @@ for b = 2:length(Beta)
     Temp = Temp(Temp(:,2)>J0old,:);
     J0old = J0;
     PMax = [PMax;Temp];
-    
+    %plotv(1:length(Temp),7+b) = Temp(:,5);
 end
 
 Temp = PRD(PRD(:,1)==Beta(b),:);
@@ -45,7 +45,7 @@ Temp = Temp(Temp(:,2)>J0,:);
 
 PMax = [PMax;Temp];
 
-plotv = nan( length( PMax(:,1) ),5 );
+plotv = nan( length( PMax(:,1) ),8 );
 plotv(:,[1,4]) = [ PMax(:,2),PMax(:,5) ];
 % [ J,V,V^3, eta(BEMT),eta(reg 1), eta(reg 2) ]
 
@@ -59,10 +59,10 @@ for k = 1:length(idxs)-1
     p(k,:) = polyfit(V.^3,etas,1);      % Third order polinomial
     
     plotv( idxs(k):idxs(k+1),5 ) = p(k,1)*V(:).^3 + p(k,2);
+    
     plotv( idxs(k+1),5 ) = nan; plotv( idxs(k),5 ) = nan;
 
 end
-
 V = (PMax(:,2)*nrd*D);
 pp = polyfit(V,PMax(:,5),5);
 
@@ -76,28 +76,33 @@ prop_data_comp = pp;
 %plot( ax(1),V/(nrd*D),polyval(pp,V),'-.b' )
 GRF = true;
 if GRF
-    plotv(:,2:3) = [ V(:),V(:).^3 ];
-    % [ J, V, V^3, eta(BEMT), eta(reg 1), eta(reg 2) ]
-    figS = [ [1;2],[1;3],...
-         [ [4:6];[4:6] ] ];
+    plotv(:,2:3) = [ V(:),V(:).^3 ]; 
+    plotv = [plotv;nan(length( PRD(:,1) )-length( plotv(:,1)),8 )];
+    plotv(:,7:8) = PRD(:,[2,5]);
+    % [ J, V, V^3, eta(BEMT), eta(reg 1), eta(reg 2), etas ]
+    Aux = nan( 2,max(1,length(Beta)) );
+    figS = [ [1;2;3],[1;3;7],...
+         [ [4:6];[4:6];[8,nan(1,2)] ] ];
     %
-    IMTIT = {'Stability Derivatives','Propeller'};
-    LG = repmat({'$\eta_P$ BEMT','$\eta_P K_V$ Pol. 3$^\circ$ Grado','$\eta_p$ Polinomio 6$^\circ$ grado'},2,1);
-
-    TIT = {'a','b'}; TITP = {'-','-'};
-    LINS = repmat({'o','--','-.'},2,1);
-    XLAB = {'J','$V^3$ [m/s]'}; YLAB = repmat({'$\eta_{P}, \eta_P K_V$'},2,1);
-
-
+    IMTIT = {'Stability Derivatives','Propeller','Propeller Efficiency'};
+    LG = repmat({'$\eta_P$ BEMT','$\eta_P K_V$ Pol. 3$^\circ$ Grado','$\eta_p$ Polinomio 6$^\circ$ grado'},3,1);
+    LG(3,:) = repmat({'-'},1,3);
+    TIT = {'a','b'}; TITP = {'-','-','-'};
+    LINS = repmat({'o','--','-.'},3,1);
+    LINS(3,:) = repmat({'o'},1,3);
+    XLAB = {'J','$V^3$ [m/s]','J'}; YLAB = repmat({'$\eta_{P}, \eta_P K_V$'},3,1);
+    YLAB(3) = {'$\eta_P$'};
+    
     plotd = DataPlot(plotv);
     for ig = 1:length(XLAB)
-        plotd = plotd.definePlot(figS(ig,2),figS(ig,3:end),figS(ig,1),'legend',LG(ig,:),...
+        yidx = figS( ig,( ~isnan( figS(ig,:) ) ) );
+        plotd = plotd.definePlot(figS(ig,2),yidx(3:end),figS(ig,1),'legend',LG(ig,:),...
             'grid','minor','xlabel',XLAB{ig},'title',TITP{ig},...
             'ylabel',YLAB{ig},'linestyle',LINS(ig,:));
     end
 
     plotd.PlotPerImag( 3,IMTIT,...
-        TITP );
+        TITP,'cartesian',false );
 end
 
 %% Save Results
