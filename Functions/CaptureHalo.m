@@ -1,7 +1,7 @@
-function [dst,dR,err] = CaptureHalo(x,y_way,bounds,GEO)
+function [dst,dR,err] = CaptureHalo(x,y_way,bounds,windpx,windpy,GEO)
 %CAPTUREHALO Summary of this function goes here
 %   Detailed explanation goes here
-    Vw = WindMap(x);
+    Vw = WindMap(windpx,windpy,x);
     y = CompleteDynNoLin_Out(x(:),Vw);
     R = GEO.LatLon2Vec(x(11),x(12),0);
     err = y_way(1:4) - y(1:4);

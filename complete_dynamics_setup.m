@@ -15,7 +15,8 @@ function main()
     %% Aircraft Definition
     nmfl = "Q100_simp.aero"; AC = ACclass(nmfl);
     AC.lat = [2*1*1;1;2];% TEMPORANEOOOO 2*zita*wn,wn^2,...
-    GEO = GeoClass();
+    GEO = GeoClass(); wind_data = 'Wind_Simp';
+    load( [wind_data,'.mat'],'windpx','windpy' );
     %% Waypoints
     % Per ora sono le grandezze sono nel sistema imperiale
 
@@ -44,7 +45,7 @@ function main()
         % Recover data from previous successful time step
         addt = x_add();                                                      % [ID,VIAS,dVd/dt,x(7),Kh]
         % Calculate Wind
-        Vw = WindMap(x);
+        Vw = WindMap(windpx,windpy,x);
         % Define current state output
         y = CompleteDynNoLin_Out(x,Vw);                                     % [IAS,M,h,hdot,Psi,p,Phi,VGT,PsiGT]                     
         % Controlled Outputs
@@ -68,7 +69,7 @@ function main()
         %error is inside an ellypse in the h-IAS error plane centered
         %around 0 error.
 
-        dst = CaptureHalo(x,y_way,bounds,GEO);
+        dst = CaptureHalo(x,y_way,bounds,windpx,windpy,GEO);
 
         position = dst;         % When stop = 0 the integration stops
         isterminal = 1;         % Halt integration
@@ -111,7 +112,7 @@ function main()
                 store = out_store(); addt = x_add();        % x_add = [ID,VIAS,dVd/dt,x(7),Kh]
                 for it = 1 :nt
                     % Output Vector
-                    Vw = WindMap(x);
+                    Vw = WindMap(windpx,windpy,x);
                     y = CompleteDynNoLin_Out(x,Vw);
                     % Longitudinal Output [ID,VIAS,hdotc,Kh,Vd,CL,T]
                     [uct,uout,dxdt] = LongControlOut(t,x,y_way(1:4,iway+1),...
@@ -158,7 +159,7 @@ function main()
             out_store = storefun(nan(1,ns)); % CONTROLLARE SE FUNZIONANO E INIZIALIZZARE
             % out_step = storefun(nan(1,10));     % ID,Vc,hdotc,Kh,Vd,CL,T,x*,x*@dt<0
             % x: [Va.ga,h,m,CL,T,Vd,Psi,Phi,p,mu,lng]
-            tstt = 4;
+            tstt = 5;
             switch tstt
                 case 1
                     % Two segments
@@ -206,7 +207,20 @@ function main()
                     i = 2; ways(i).lat = 37.0; ways(i).lng = 17.9; ways(i).Az = 0;
                     i = 3; ways(i).lat = 38.0; ways(i).lng = 17.9; ways(i).Az = 0;
                     i = 4; ways(i).lat = 39; ways(i).lng = 17.9; ways(i).Az = 0;
-
+                case 5
+                    % Lateral Only
+                    Vs = [120,120,120,120];
+                    gas = [0,0,0,0];
+                    hs = [4500,4500,4500,4500];
+                    ms = ones(4,1)*15400;
+                    ways(1).ID = "Init"; ways(2).ID = "T2F"; ways(3).ID = "C2F";
+                    % ways(4).ID = 'R2F';
+                    i = 1; ways(i).lat = 36.2; ways(i).lng = 17.9;
+                    i = 2; ways(i).lat = 37; ways(i).lng = 17.9;
+                    i = 3; ways(i).lat = 38; ways(i).lng = 17;
+                    ways(i).Az = 0;
+                    % i = 4; ways(i).lat = 38; ways(i).lng = 16.45;
+                    % ways(i).t = -1; ways(i).PsiE = 20;
                     
             end
             Tfin = 2500;                                            % Final time
@@ -260,6 +274,6 @@ function main()
             %x_debug = out_step();
             
             plot_results(AC,CHS,tres,xres,x_aux,y_way...
-                ,store_way,[],[],[],[],[],GEO);
+                ,store_way,windpx,windpy,GEO);
     end
 end
