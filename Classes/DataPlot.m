@@ -669,142 +669,228 @@ classdef DataPlot %< handle
                     'FontSize',obj.fontdim.FLAB );
             end
         end
-        % % % function [fig,hAx] = trajectoryPlot(obj,kind,varargin)
-        % % %     %TRAJECTORYPLOT: function that plots the trajectory of the
-        % % %     % aircraft.
-        % % %     %   INPUT
-        % % %     %   - x,y,z: coordinates of the aircraft in a given reference frame
-        % % % 
-        % % %     % Plot Waypoints
-        % % %     %%Rw = wayid(); FINIREEEE AGGIUNGERE WAYPOINTS
-        % % %     %%plot3(axG,Rw(:,1),Rw(:,2),Rw(:,3),'or','MarkerSize',5);              % Markers plot
-        % % % 
-        % % %     p = inputParser;
-        % % % 
-        % % %     function p = flagcheck(a)
-        % % %         if ~strcmp(a,'ECEF') && ~strcmp(a,'NED') ...
-        % % %                 && ~strcmp(a,'NEDi')
-        % % %             p = true;
-        % % %         else
-        % % %             p = false;
-        % % %         end
-        % % %     end
-        % % %     addRequired(p,'kind',@flagcheck);
-        % % %     addParameter(p,'psi',0,@isnumeric)
-        % % %     addParameter(p,'theta',0,@isnumeric)
-        % % %     addParameter(p,'phi',0,@isnumeric)
-        % % % 
-        % % %     function q = quiverPlot(ax,R,U)
-        % % %     %QUIVERPLOT:
-        % % %     %   INPUT
-        % % %     %   - R: [Rx,Ry,Rz] Coordinates of origin
-        % % %     %   - U: [Ux,Uy,Uz]
-        % % %     % ----------------------------------------------------------- %
-        % % %         nl = length( R(:,1) );
-        % % %         if nl ~= length( U(:,1) )
-        % % %             error('R and U have different dimensions')
-        % % %         end
-        % % %         for iG = 1:nl
-        % % %             q(iG) = quiver3( ax,R(iG,1),R(iG,2),R(iG,3),...
-        % % %                 U(iG,1),U(iG,2),U(iG,3),'LineWidth',1.5,'Color',cls(iG,:) );
-        % % %         end
-        % % % 
-        % % %     end
-        % % %     fig = figure();         % figure definition
-        % % %     set( fig, 'Units', 'normalized', ...
-        % % %                 'Position', [0.1,0.1,0.8,0.8] ) ;
-        % % %     vers = eye(3);          % Identity Matrix used for plot and versors
-        % % %     scl = 10e2;             % Scale Factor
-        % % %     %ptidx = choosePts(Rs);
-        % % %     hAx = obj.defineAxes(1,1,fig,'normal');     % Axes Definition
-        % % %     switch kind
-        % % %         case 'ECEF'
-        % % %         % Trajectory plot in ECEF coordinates, with NED and Body
-        % % %         % Reference Systems
-        % % %         %   INPUT
-        % % %         %       - x,y,z trajectory components in ECEF coordinates
-        % % % 
-        % % %             % Plot Attitude
-        % % %             addParameter(p,'mu',0,@isnumeric)
-        % % %             addParameter(p,'lat',0,@isnumeric)
-        % % %             addParameter(p,'h',0,@isnumeric)
-        % % % 
-        % % %             parse(p,kind,GEO,varargin{:})
-        % % % 
-        % % %             Rgt = GEO.LatLon2Vec(p.Results.mu,p.Results.lat,0);             % Ground Track Trajectory
-        % % %             Rs = GEO.LatLon2Vec(p.Results.mu,p.Results.lat,...
-        % % %                 p.Results.h );                                              % Trajectory in ECEF coordinates
-        % % %             obj.plotting3D(Rgt,1,2,3,hAx,'--');
-        % % %             obj.plotting3D(Rs,1,2,3,hAx,'-');
-        % % %             for i = 1:3
-        % % %                 % Ground Track
-        % % %                 UsN = GEO.NED2DIS( vers(:,i),'N2E',p.Results.mu(ptidx),...
-        % % %                     p.Results.lat(ptidx) );                                 % Local NED Axes
-        % % %                 q = quiverPlot( ax,Rgt(ptidx,:),UsN(ptidx,:),i )*scl;       % Plot Local NED and Origin on the ground track
-        % % %                 % Trajectory
-        % % %                 UsB = AC.body2NED(vers(:,i),'B2N',p.Results.psi(ptidx),...
-        % % %                     p.Results.theta(ptidx),p.Results.phi(ptidx) );          % Body in NED
-        % % %                 UsB = GEO.NED2DIS(UsB,'N2E',p.Results.mu(ptidx),...         % NED to ECEF
-        % % %                     p.Results.lat(ptidx) )*scl;
-        % % %                 q = quiverPlot( ax,Rs(ptidx,:),UsB(ptidx,:),i );            % Plot Body and CG
-        % % %             end
-        % % % 
-        % % %         case 'NEDi'
-        % % %         % Trajectory in initial NED Coordinates
-        % % %         %   INPUT
-        % % %         %       - x,y,z trajectory components in ECEF coordinates
-        % % %         %       -
-        % % %         % ---------------------------------------------------- %
-        % % % 
-        % % %             Rgt = GEO.LatLon2Vec(p.Results.mu,p.Results.lat,0);             % Ground Track Trajectory
-        % % %             Rs = GEO.LatLon2Vec(p.Results.mu,p.Results.lat,...
-        % % %                 p.Results.h );                                              % Trajectory in ECEF coordinates
-        % % %             % Trajectory
-        % % %             Rs = Rs - Rgt(1,:);                                             % Position Vector @ the NED at t0
-        % % %             Rs = GEO.NED2DIS(Rs','E2N',x(1,11),x(1,12)); Rs = Rs';          % Position in NED at t0
-        % % %             % Same with Ground Track
-        % % %             Rgt = Rgt - Rgt(1,:);
-        % % %             Rgt = GEO.NED2DIS(Rgt','E2N',x(1,11),x(1,12)); Rgt = Rgt';
-        % % %             obj.plotting3D(Rgt,1,2,3,ax,'--');
-        % % %             obj.plotting3D(Rs,1,2,3,ax,'-');
-        % % %             for i = 1:3
-        % % %                 UsB = AC.body2NED(vers(:,i),'B2N',p.Results.psi(ptidx),...
-        % % %                     p.Results.theta(ptidx),p.Results.phi(ptidx) );          % Body in NED
-        % % %                 q = quiverPlot( ax,Rs(ptidx,:),UsB(ptidx,:),i );            % Plot Body and CG
-        % % %             end
-        % % % 
-        % % %         case 'NED'
-        % % %         % Trajectory in Initial NED assumed as inertial frame
-        % % %         %   INPUT
-        % % %         %   - x,y,z: coordinates of the CG in the NED
-        % % %         %   - psi,theta,phi: Euler angles from Body to NED
-        % % %         % --------------------------------------------------- %
-        % % %             addParameter(p,'x',0,@isnumeric)
-        % % %             addParameter(p,'y',0,@isnumeric)
-        % % %             addParameter(p,'z',0,@isnumeric)
-        % % % 
-        % % %             parse(p,kind,GEO,varargin{:})
-        % % % 
-        % % % 
-        % % % 
-        % % % 
-        % % % 
-        % % % 
-        % % % 
-        % % % 
-        % % %             axG(2).ZDir = 'reverse';
-        % % %     end
-        % % %     axis( [ min([Rs(:,1);Rgt(:,1)]),max([Rs(:,1);Rgt(:,1)]),...
-        % % %         min([Rs(:,2);Rgt(:,2)]),max([Rs(:,2);Rgt(:,2)]),...
-        % % %         min([Rs(:,3);Rgt(:,3)]),max([Rs(:,3);Rgt(:,3)])] );
-        % % % end
-        % % % 
-        % % % function p = plotting3D(obj,plotv,xidx,yidx,zidx,ax,lst)
-        % % % 
-        % % %     p = plot3( ax,plotv(:,xidx),plotv(:,yidx),plotv(:,zidx),...
-        % % %         'LineStyle',lst );
-        % % % 
-        % % % end
+        function [fig,hAx] = trajectoryPlot(obj,kind,vidx,GEO,AC)
+            %TRAJECTORYPLOT: function that plots the trajectory of the
+            % aircraft.
+            %   INPUT
+            %   - kind
+            %   - varidx: columns of variables to plot in the plot vector
+            %           property
+            %   - GEO: geobject class object
+
+            % Plot Waypoints
+            %%Rw = wayid(); FINIREEEE AGGIUNGERE WAYPOINTS
+            %%plot3(axG,Rw(:,1),Rw(:,2),Rw(:,3),'or','MarkerSize',5);              % Markers plot
+
+            p = inputParser;
+
+            function p = flagcheck(a)
+                if ~strcmp(a,'ECEF') && ~strcmp(a,'NED') ...
+                        && ~strcmp(a,'NEDi')
+                    p = false;
+                else
+                    p = true;
+                end
+            end
+            addRequired(p,'kind',@flagcheck);
+            parse(p,kind);
+
+            function q = quiverPlot(ax,R,U,iP)
+            %QUIVERPLOT:
+            %   INPUT
+            %   - R: [Rx;Ry;Rz] Coordinates of origin
+            %   - U: [Ux;Uy;Uz]
+            % ----------------------------------------------------------- %
+                nl = length( R(1,:) );
+                if nl ~= length( U(1,:) )
+                    error('R and U have different dimensions')
+                end
+                for iG = 1:nl
+                    q(iG) = quiver3( ax,R(1,iG),R(2,iG),R(3,iG),...
+                        U(1,iG),U(2,iG),U(3,iG),'LineWidth',1.5,'Color',vers(iP,:) );
+                end
+
+            end
+            % Figure
+            fig = figure();         % figure definition
+            set( fig, 'Units', 'normalized', ...
+                        'Position', [0.1,0.1,0.8,0.8] ) ;
+            % efig = uifigure;         % figure definition
+            % set( efig, 'Units', 'normalized', ...
+            %             'Position', [0.1,0.1,0.8,0.8] ) ;
+            % Initializzation
+            vers = eye(3);          % Identity Matrix used for plot and versors
+            scl = 10e2;             % Scale Factor
+            %ptidx = choosePts(Rs);
+            hAx = obj.defineAxes(1,1,fig,'normal');     % Axes Definition
+
+            Rgt = GEO.LatLon2Vec( obj.plotv(:,vidx(1)) ,...
+                obj.plotv(:,vidx(2)),0 );                               % Ground Track Trajectory
+            Rs = GEO.LatLon2Vec( obj.plotv(:,vidx(1)) ,...
+                obj.plotv(:,vidx(2)),obj.plotv(:,vidx(3)) );            % Trajectory in ECEF coordinates
+
+            ptidx = obj.plotidx( vidx(7),vidx(1:6) );                   % Indices for plotting Ref. Sys
+
+            switch p.Results.kind
+                case 'ECEF'
+                % Trajectory plot in ECEF coordinates, with NED and Body
+                % Reference Systems
+                %   INPUT
+                %       - varidx: [Long,Lat,h,psi,teta,phi,t ]
+                    if length(vidx) < 6
+                        error('varidx vector must have 6 indices')
+                    end
+                    % Plot Attitude
+                    
+                    idxs = 1:length(ptidx);
+
+                    obj.plotting3D(Rgt',1,2,3,hAx{1},'--');                         % Ground Track Plot
+                    hold( hAx{1},'on')
+                    obj.plotting3D(Rs',1,2,3,hAx{1},'-');                           % Trajectory Plot
+                    
+
+                %     g = geoglobe(efig,Basemap="darkwater",Terrain="none");
+                %     geoplot3(g,obj.plotv(:,vidx(1))*180/pi ,...
+                % obj.plotv(:,vidx(2))*180/pi,obj.plotv(:,vidx(3)),HeightReference="ellipsoid");
+                %     hold(g,'on');
+                %     geoplot3(g,obj.plotv(:,vidx(1))*180/pi ,...
+                %         obj.plotv(:,vidx(2))*180/pi,obj.plotv(:,vidx(3))*0,'y',HeightReference="ellipsoid");
+                %     campitch(g,-30)
+                %     camheading(g,40)
+                    % Reference System Versors
+                    for j = ptidx
+                        for i = 1:3
+                            % Ground Track
+                            UsN = GEO.NED2DIS( vers(:,i),'N2E',...
+                                obj.plotv( j,vidx(1) ), ...
+                                obj.plotv( j,vidx(2) ) );                       % Local NED Axes
+                            q = quiverPlot( hAx{1},Rgt(:,j),UsN*scl,i );   % Plot Local NED and Origin on the ground track
+                            % Trajectory
+                            UsB = AC.body2NED(vers(:,i),'B2N',obj.plotv( j,vidx(4) ),...
+                                obj.plotv( j,vidx(5) ),obj.plotv( j,vidx(6) ) );          % Body in NED
+                            UsB = GEO.NED2DIS(UsB,'N2E',obj.plotv( j,vidx(1) ), ...
+                                obj.plotv( j,vidx(2) ) );
+                            q = quiverPlot( hAx{1},Rs(:,j),UsB*scl,i );            % Plot Body and CG
+                        end
+                    end
+                    set( hAx{1},'FontSize',16,'FontName','Times New Roman' );
+                    lms = nan(1,6);
+                    lms([1,3,5]) = min([Rgt';Rs']); lms([2,4,6]) = max([Rgt';Rs']);
+                    axis( lms )
+                case 'NEDi'
+                % Trajectory in initial NED Coordinates
+                %   INPUT
+                %       - x,y,z trajectory components in ECEF coordinates
+                %       -
+                % ---------------------------------------------------- %
+                    is = 1; % Index of reference NED
+                    % Trajectory
+                    Rs = Rs - Rgt(:,is);                                     % Position Vector @ the NED at t0
+                    Rgt = Rgt - Rgt(:,is);
+                    % From ECEF to Initial NED
+                    for j = 1:length( obj.plotv(:,1) )
+                        Rs(:,j) = GEO.NED2DIS(Rs(:,j),'E2N',obj.plotv( 1,vidx(1) ), ...
+                            obj.plotv( 1,vidx(2) ) );                   % Position in NED at t0
+                        Rgt(:,j) = GEO.NED2DIS( Rgt(:,j),'E2N',obj.plotv(1,vidx(1)) ,...
+                            obj.plotv(1,vidx(2)) );
+                    end
+                    
+                    % Same with Ground Track
+                    
+                    
+                    % Plot Trajectory and Ground Track
+                    obj.plotting3D(Rgt',1,2,3,hAx{1},'--');                         % Ground Track Plot
+                    hold( hAx{1},'on')
+                    obj.plotting3D(Rs',1,2,3,hAx{1},'-');                           % Trajectory Plot
+                    % Plot reference systems
+                    for j = ptidx
+                        for i = 1:3
+                            % Ground Track
+                            UsN = GEO.NED2DIS( vers(:,i),'N2E',...
+                                obj.plotv( j,vidx(1) ), ...
+                                obj.plotv( j,vidx(2) ) );                                   % Local NED Axes in ECEF Coordinates
+                            UsN = GEO.NED2DIS( UsN,'E2N',...
+                                obj.plotv( is,vidx(1) ), ...
+                                obj.plotv( is,vidx(2) ) );                                   % Local NED Axes in Initial NED Coordinates
+
+                            q = quiverPlot( hAx{1},Rgt(:,j),UsN*scl,i );                    % Plot Local NED and Origin on the ground track
+                            % Trajectory
+                            UsB = AC.body2NED(vers(:,i),'B2N',obj.plotv( j,vidx(4) ),...
+                                obj.plotv( j,vidx(5) ),obj.plotv( j,vidx(6) ) );            % Body in Local NED
+                            UsB = GEO.NED2DIS(UsB,'N2E',obj.plotv( j,vidx(1) ), ...
+                                obj.plotv( j,vidx(2) ) );                                   % Body in ECEF Coordinates
+                            UsB = GEO.NED2DIS( UsB,'E2N',...
+                                obj.plotv( is,vidx(1) ), ...
+                                obj.plotv( is,vidx(2) ) );                                   % Body in Initial NED
+                            q = quiverPlot( hAx{1},Rs(:,j),UsB*scl,i );            
+                        end
+                    end
+                    hAx{1}.ZDir = "reverse"; % Point Z axis up
+                    hAx{1}.XDir = "reverse"; % Point Z axis up
+                    set( hAx{1},'FontSize',16,'FontName','Times New Roman' );
+                    lms = nan(1,6);
+                    lms([1,3,5]) = min([Rgt';Rs']); lms([2,4,6]) = max([Rgt';Rs']);
+                    axis( lms )
+                    axis image
+                    % hAx{1}.XLabel.FontSize = obj.fontdim.FLAB;
+                    % hAx{1}.XLabel.FontName = 'Times New Roman';
+                    % hAx{1}.
+                % % 
+                % % case 'NED'
+                % % % Trajectory in Initial NED assumed as inertial frame
+                % % %   INPUT
+                % % %   - x,y,z: coordinates of the CG in the NED
+                % % %   - psi,theta,phi: Euler angles from Body to NED
+                % % % --------------------------------------------------- %
+                % %     addParameter(p,'x',0,@isnumeric)
+                % %     addParameter(p,'y',0,@isnumeric)
+                % %     addParameter(p,'z',0,@isnumeric)
+                % % 
+                % %     parse(p,kind,GEO,varargin{:})
+                % % 
+                % % 
+                % % 
+                % % 
+                % % 
+                % % 
+                % % 
+                % % 
+                % %     axG(2).ZDir = 'reverse';
+            end
+            % axis( [ min([Rs(1,:);Rgt(1,:)]),max([Rs(:,1);Rgt(:,1)]),...
+            %     min([Rs(:,2);Rgt(:,2)]),max([Rs(:,2);Rgt(:,2)]),...
+            %     min([Rs(:,3);Rgt(:,3)]),max([Rs(:,3);Rgt(:,3)])] );
+        end
+
+        function p = plotting3D(obj,plotv,xidx,yidx,zidx,ax,lst)
+
+            p = plot3( ax,plotv(:,xidx),plotv(:,yidx),plotv(:,zidx),...
+                'LineStyle',lst,'LineWidth',1.5 );
+
+        end
+
+        function idxs = plotidx(obj,xidx,yidx)
+            dts = obj.plotv(:,yidx)*nan; ddts = dts;
+            for i = 2:length(obj.plotv(:,1))
+                dts(i,:) = abs( obj.plotv(i,yidx) - obj.plotv(i-1,yidx) )/...
+                    ( obj.plotv(i,xidx) - obj.plotv(i-1,xidx) );
+                ddts(i,:) = abs( dts(i,:) - dts(i-1,:) ) / ( obj.plotv(i,xidx) - obj.plotv(i-1,xidx) );
+            end
+            dts = 1 - dts./max(dts);
+            ddts = 1 - ddts./max(ddts);
+            xlast = obj.plotv(1,xidx);
+            idxs(1) = 1;
+            k = 2;
+            for i = 1:length(obj.plotv(:,1))
+
+                if ( any(ddts(i,:)<0.8,2) || (obj.plotv(i,xidx) - xlast) > 60 ) && ...
+                        (obj.plotv(i,xidx) - xlast) > 10
+                    idxs(k) = i;
+                    k = k + 1;
+                    xlast = obj.plotv(i,xidx);
+                end
+            end
+        end
         % % % https://www.mathworks.com/matlabcentral/answers/233818-how-to-create-subplots-with-little-vertical-spacing
         % % load clown ;
         % % 

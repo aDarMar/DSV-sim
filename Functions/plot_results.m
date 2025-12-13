@@ -1,4 +1,4 @@
-function plot_results(AC,flg,t,x,x_add,y_way,x_stop,tl,xl,A,C,xref,GEO)
+function plot_results(AC,flg,t,x,x_add,y_way,x_stop,windpx,windpy,GEO)
 %PLOT_RESULTS Function that plots the results of the integration
 %   INPUT
 %   - x:  state vector [Va,ga,h,m,CL,T,VD,psi,phi,p,mu,l]
@@ -12,11 +12,11 @@ function plot_results(AC,flg,t,x,x_add,y_way,x_stop,tl,xl,A,C,xref,GEO)
             % Setup for longitudinal and lateral plot
     
     
-            Vw = WindMap(x);
+            Vw = WindMap(windpx,windpy,x);
             y = CompleteDynNoLin_Out(x',Vw);
             y = y';                                 %
             f_add = CalcForce(t,x,x_add,x_stop,y,AC);           % Calculate Forces
-            [errs,tmpw] = errCalc(t,x,x_stop,x_add,y_way,GEO);         % Error Calculation
+            [errs,tmpw] = errCalc(t,x,x_stop,x_add,y_way,windpx,windpy,GEO);         % Error Calculation
             %% Variables vs Time
             pvec = [t,x,x_add,y,f_add,errs];                    % Plot Vector
             % [ t,Va,ga,h,m,CL,T,VD,psi,phi,p,mu,l,              1:13
@@ -51,7 +51,12 @@ function plot_results(AC,flg,t,x,x_add,y_way,x_stop,tl,xl,A,C,xref,GEO)
             % Errors
             temp = [ones(3,1)*6,ones(3,1),[44,46;50,24;51,nan]];
             figS = fillMatrix(figS,temp);
-    
+            % Kh Errors ID
+            temp = [ones(3,1)*7,ones(3,1),[17,16;19,20;14,nan]];
+            figS = fillMatrix(figS,temp);
+
+
+
             dms = size(figS);
             LEG = repmat({'-'},dms(1),dms(2));
             LEG{4,1} = '$\Phi_D$'; LEG{4,2} = '$\Psi_D$';
@@ -66,18 +71,19 @@ function plot_results(AC,flg,t,x,x_add,y_way,x_stop,tl,xl,A,C,xref,GEO)
             LEG{24,1} = 'T'; LEG{24,2} = 'T$_p^V$'; LEG{24,3} = 'T$_b^V$';
             LEG{24,4} = 'I$_T$';
             LEG{28,1} = '$\Delta$ R'; LEG{28,2} = '$\Delta R_{lat}$';
-    
+
             XLAB = repmat({'t [s]'},dms(1));
             YLAB = {'ID','$V_c$ [kts] | $\dot{h}_d$ [ft/min]','C$_L$ [-] | T [N]',...
                 '$\Phi_c$, $\Psi_c$ [rad]','p [rad/s]','V [m/s]','$\gamma_a$ [rad]',...
-                'h [m]','M [kg]','I$_{C_L}$ [??]','I$_T$ [??]','I$_{V_D}$ [??]',...
+                'h [m]','M [kg]','I$_{C_L}$ [-]','I$_T$ [N]','I$_{V_D}$ [??]',...
                 '$\Psi$ [rad]','$\Phi$ [rad]','p [rad/s]',...
                 '$\mu$ [rad]','l [rad]','ID','$\dot{h}$ [ft/min]','V [kts]',...
-                '$\Psi,Phi$ [rad]','F [N]','F [N]','F [N]','-','-',...
-                '$\Delta V$ [kts] and h [ft]','$\Delta R$ [m]','-'};
+                '$\Psi,\Phi$ [rad]','F [N]','F [N]','F [N]','-','-',...
+                '$e_V$ [kts] | $e_h$ [ft]','$\Delta R$ [m]','-',...
+                '$K_{\dot{h}}$ [ft/min] | $\dot{h}_d$','C$_L$ [-] | T [N]','ID'};
             LINST = repmat( {'-'},dms(1),dms(2) );
-            LINST{2,2} = 'r-'; LINST{3,2} = 'r-';
-    
+            LINST{2,2} = 'r-'; LINST{3,2} = 'r-'; LINST{27,2} = 'r-';
+            LINST{30,2} = 'r-'; LINST{31,2} = 'r-';
             FIGT = {'ID','Longitudinal Commanded Values','C$_L$ and T',...
                 '$\Phi_C$ and $\Psi_C$','Roll','V','$\gamma_a$','h','m',...
                 'I$_{C_L}$','I$_T$','I$_{V_D}$','$\Psi$','$\Phi$','p',...
@@ -87,7 +93,7 @@ function plot_results(AC,flg,t,x,x_add,y_way,x_stop,tl,xl,A,C,xref,GEO)
                 'Distance Error','Terminator Function'};
     
             NFIG = {'Commanded Values','State Variables','Commanded Variables',...
-                'Forces','Integral VD Debug','Errors'};
+                'Forces','Integral VD Debug','Errors','Kh'};
 
             pltdt = DataPlot( pvec );
             for iG = 1:length( figS(:,1) )
@@ -114,9 +120,9 @@ function plot_results(AC,flg,t,x,x_add,y_way,x_stop,tl,xl,A,C,xref,GEO)
                     errs( tmpw(i-1)+1:tmpw(i),3 ); % h error 2*(i-1)
 
                 pvec( 1:11,2*i-3+2*nway ) = ...
-                    [-1;1;nan;-1;1;nan;-1;-1;nan;1;1]*x_stop( i-1,2 );   % IAS Bounds
+                    [-1;1;nan;-1;1;nan;-1;-1;nan;1;1]*x_stop( i,2 );   % IAS Bounds
                 pvec( 1:11,2*i-2+2*nway ) = ...
-                    flip([-1;1;nan;-1;1;nan;-1;-1;nan;1;1])*x_stop( i-1,3 ); % h Bound
+                    flip([-1;1;nan;-1;1;nan;-1;-1;nan;1;1])*x_stop( i,3 ); % h Bound
 
                 figS(i-1,1) = 1; figS(i-1,2:5) = [ 2*i-3 , 2*i-2, ...
                     2*i-3 + 2*nway,2*i-2 + 2*nway];
@@ -128,8 +134,9 @@ function plot_results(AC,flg,t,x,x_add,y_way,x_stop,tl,xl,A,C,xref,GEO)
             for i = 1:nway
                 %yidx = figS( i,~isnan( figS(i,: ) ) );
                plter = plter.definePlot( figS(i,[2,4]),figS(i,[3,5]),figS(i,1),...
-                   'grid','minor','linestyle',{'-'},'xlabel','$\Delta V_{IAS}$',...
-                   'ylabel','$\Delta h$');
+                   'grid','minor','linestyle',{'-'},'xlabel','$e_V$',...
+                   'ylabel','$e_h$','title',...
+                   ['Waypoint ',num2str(i-1),' $\rightarrow$ ',num2str(i)]);
             end
             [~,plter] = plter.PlotPerImag( [2,2],IMSAV,IMSAV,'cartesian',false );
             % Reverting the axes
@@ -144,12 +151,24 @@ function plot_results(AC,flg,t,x,x_add,y_way,x_stop,tl,xl,A,C,xref,GEO)
                         'Position', [0.1,0.1,0.8,0.8] ) ;
 
             gx = geoaxes('Parent',fig);                     % Geoaxes object definiton for tiledlayout
-            geoplot(gx,x(:,11)*180/pi,x(:,12)*180/pi);      % Trajectory
+            p = geoplot(gx,x(:,11)*180/pi,x(:,12)*180/pi);      % Trajectory
+            p.LineWidth = 1.5; p.Color = [0.15,0.15,0.15];
             hold(gx,'on');
             plotMap(y_way,GEO,gx)
-
-            %% Plot Waypoints
+            set( gx,'FontSize',16,'FontName','Times New Roman' );
+            gx.Basemap = 'darkwater';
             
+            idx1 = 1500; idx2 = 1624;
+            idx1 = 1; idx2 = 500;
+            plttrj = DataPlot( [t(idx1:idx2),x(idx1:idx2,:)] );
+
+            plttrj.trajectoryPlot('ECEF',[12,13,4,9,3,10,1],GEO,AC);
+            plttrj.trajectoryPlot('NEDi',[12,13,4,9,3,10,1],GEO,AC);
+            %% Plot Waypoints
+            %plter.trajectoryPlot('ECEF','mu',x(:,12),'lat',x(:,13),'h',x(:,4),...
+            %    'psi',x(:,9),'theta',x(:,3),'phi',x(:,10) );
+            %plter.trajectoryPlot('NEDi','mu',x(:,12),'lat',x(:,13),'h',x(:,4),...
+            %    'psi',x(:,9),'theta',x(:,3),'phi',x(:,10) );
     end
 
 end
@@ -398,7 +417,7 @@ function [fig,ax] = IAShplot(AC,t,x,x_aux,x_debug,store_way)
 
 end 
 
-function [errs,endix] = errCalc(t,x,x_stop,x_aux,y_way,GEO)
+function [errs,endix] = errCalc(t,x,x_stop,x_aux,y_way,windpx,windpy,GEO)
 %ERRCALC: function that calculates the error
 %   INPUT
 %   - t: time
@@ -417,13 +436,13 @@ function [errs,endix] = errCalc(t,x,x_stop,x_aux,y_way,GEO)
     for i = 1:nway
         while t(k)<x_stop(i+1,1)
             [errs(k,8),errs(k,7),errs(k,1:4)] = ...
-                CaptureHalo(x(k,:),y_way(:,i+1),x_stop(i,2:3),GEO);
+                CaptureHalo(x(k,:),y_way(:,i+1),x_stop(i,2:3),windpx,windpy,GEO);
             errs(k,6) = x_aux(k,9) - x(k,9);    % Phi_err
             errs(k,5) = x_aux(k,10) -x(k,8);    % Psi_err
             
             k = k+1;
         end
-        endix(i) = k;
+        endix(i) = k-1;
     end
     endix = [1;endix];
 end
