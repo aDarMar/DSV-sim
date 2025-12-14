@@ -531,7 +531,7 @@ classdef DataPlot %< handle
             obj.definePlot( Reidx(i),imagIdx(i),1 )
            % Root Locus Branches
             obj.plotting( 'cartesian',obj.plotv,2*i-1,2*i,axR,'-',i,'-');
-            obj.plotting( 'cartesian',obj.plotv(1,:),2*i-1,2*i,axR,'-',i,'x');
+            obj.plotting( 'cartesian',obj.plotv(1,:),2*i-1,2*i,axR,'-',i,'ox');
             % Find Break-in and Crossover Points
             flg1 = false; flg2 = false; k = 1;
             for j = 2:length( obj.plotv(:,1) ) % Break in/away

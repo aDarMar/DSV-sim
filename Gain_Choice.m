@@ -1,6 +1,5 @@
 close all; clear; clc
 
-global u0
 addpath('.\Classes')
 addpath('.\Functions')
 addpath('.\Data')
@@ -57,7 +56,7 @@ function main()
         rLocusDef(Ain,-Bi,Ci,2,3); % Ki12 cioe controllo int su M con CL
     
     else
-        nmfl = "Q100.aero"; AC = ACclass(nmfl);
+        nmfl = "Q100_simp.aero"; AC = ACclass(nmfl);
         %AC.m = 15649; AC.Sw = 56.57; AC.CD0 = 0.03; AC.CLmd = 0.2; AC.bw = 24.6;
         %AC.e = 0.85; AC.ARw = AC.bw^2/AC.Sw;
         x0 = [120,0,500];      % Va [m/s] ga [rad] h [m]
@@ -72,7 +71,8 @@ function main()
     [T, a, P, rho] = atmosisa([0,4500,2500,7650]);
     rom = nan(1,2); rom(1) = AC.MZF/rho(1); rom(2) = AC.MTO/rho(2); rom(3) = AC.MTO/rho(3); rom(4) = AC.MTO/rho(4);                            % Min and Max m/rho [m^3]
     CL = linspace(0.05,1.5,100); V = sqrt( rom*2*9.81./(AC.Sw*CL(:) ) );
-    
+    plotv = [CL(:),V];
+    plotenv = DataPlot( plotv );
     fig = figure();
     ax = axes('Parent',fig);
     plot( ax,CL,V ); hold(ax,'on');
@@ -81,39 +81,59 @@ function main()
     Vmax = 150; Vstall = 60; Mlim = 0.5; qmax = 0.5*rho*Vmax^2;
     
     %% Reference Condition
-    [xref,x0] = Flight_Env([Vmax,Vstall,Mlim,qmax,hmax],AC,ax);
+    [xref,x0] = Flight_Env([Vmax,Vstall,Mlim,qmax,hmax],AC,plotenv,rom);
     
-    %% Response
+    %% Modal Properties
+    % Evaluate modal properies for all equilibrium conditions
     
-    fig = figure();
-    ax2 = axes('Parent',fig); hold(ax2,'on');
-    for it = 1:length(x0(:,1))
-    
-        [A,B,C,D] = AC.LongLinSys(x0(it,1:3),x0(it,4) );
-        lam = eig(A);
-        plot(ax2,real(lam),imag(lam),'ob');
-    
-    end
     [A,B,C,D] = AC.LongLinSys(xref(1:3),xref(4) );
     lam = eig(A);
-    plot(ax2,real(lam),imag(lam),'o','MarkerSize', 8, ...                       % dimensione del marker
-        'MarkerEdgeColor', [0 0 0], ...                                         % colore bordo (nero)
-        'MarkerFaceColor', [1 0 0], ...                                         % colore interno (rosso)
-        'LineWidth', 1);
+    neig = length(A(:,1));
+    plotv = nan( length( x0(:,1) ),neig*4 );
+    % [ Real(eig),imag(eig),real(eig@ref),imag(eig@ref) ]
+    % [ Real(eig1:neig) Imag(eig 1:neig) , real( eig@ref 1:neig ),imag(eig@ref) ]
+    %   1:neig          1:neig              1:neig                  1:neig
+
+    plotv(1,2*neig+1:4*neig) = [ real(lam)',imag(lam)' ];       % Saves Eigenvalues at reference condition
+    for it = 1:length( x0(:,1) )
+        [A,B,C,D] = AC.LongLinSys(x0(it,1:3),x0(it,4) );
+        lam = eig(A);
+        plotv(it,1:2*neig) = [ real(lam)',imag(lam)' ];         % Saves Eigenvalues at flight condition
+    end
+    
+    LST = repmat({'osquare'},1,2*neig); LST(neig+1:2*neig) = repmat({'odiamond'},1,neig);
+    
+
+    ploteig = DataPlot(plotv);
+    ploteig = ploteig.definePlot([1:neig,2*neig+1:3*neig],...
+        [neig+1:2*neig,3*neig+1:4*neig],1,'legend', ...
+        {'Cond. Volo Ammissibili','Cond. Volo Riferimento'},'XLAB','Real',...
+        'YLAB','Imag','linestyle',LST,'grid','minor');
+    ploteig.PlotPerImag([1,1],{'Autovalori'},...
+        {'Autovalori al Variare della FC'},'cartesian');
+
     % System with Integral Control
+    % Build the extended system matrices to take into account the integral
+    % response
     Ai = [A,B;zeros(2,5)]; Bi = [B,zeros(3,2);zeros(2,2),eye(2)];
     Ci = [C,zeros(4,2)];
+    neig = length(Ai(:,1));
     
-    %% Gain Definitions for Reference Condition
-    
-    lam_c = nan(5,3); % Roots of controlled system in ref cond
-    fig_rl = figure('Name','Eigenvalues out of reference condition');
-    wn = [1;0.5;0.5]; zita = [0.7;0.7;0.7]; p = [0,nan;-0.05,nan;-0.1,-0.3];   % Sought modal caracteristics
-    CTR = {'CLcHd','CLcV','CLTcVh'}; 
-    TIT = {'CL control of hdot','CL control of V','CL and T control of V,hdot'};
+    %% Gain Definitions for Reference Conditions
+
+    lam_c = nan(5,3);                                                           % Roots of controlled system in ref cond
+    wn = [1;0.5;0.5]; zita = [0.7;0.7;0.7]; p = [0,nan;-0.05,nan;-0.1,-0.3];    % Required modal caracteristics
+    CTR = {'CLcHd','CLcV','CLTcVh'};
     nctrnd = length(wn); Kp = zeros(2,4,nctrnd); Kb = Kp; Ki = Kp;              % Initializing Gain matrices
+    % Plot Initializzation
+    plotv = nan( length( x0(:,1) ),4*neig*nctrnd );                             % plot vector
+    ploteig = DataPlot( plotv );                                                % Initialize DataObj object
+    LST = repmat({'osquare'},1,2*neig); LST(neig+1:2*neig) = ...
+        repmat({'odiamond'},1,neig);
+    TIT = {'C$_L$ control of $\dot{h}$','C$_L$ control of V',...
+        'C$_L$ and T control of V and $\dot{h}$'};
+    % Controllers Gains
     for iTs = 1:nctrnd
-        axs(iTs) = subplot(1,3,iTs,'Parent',fig_rl); hold(axs(iTs),'on');
         if CTR{iTs} == "CLTcVh"
             % In this case there are two poles to be defined
             [Kpt,Kit,Kbt,lam] = ...
@@ -124,9 +144,27 @@ function main()
                 Gains( wn(iTs),zita(iTs),Ai,Bi,Ci,D,CTR{iTs},p(iTs) );
         end
         lam_c (:,iTs) = lam; [temp1,temp2] = OmZitaCalc(lam_c(:,iTs));
-        plot_conds( x0,xref,Kbt,Kit,Kpt,axs(iTs),TIT{iTs} );
+
         Kp(:,:,iTs) = Kpt; Ki(:,:,iTs) = Kit; Kb(:,:,iTs) = Kbt;
+        % Graphics
+        idx1 = 1:2:neig*4; idx2 = 2:2:neig*4;
+        tmp1 = AC.CheckCont(x0,Kbt,Kit,Kpt);            % Eigenvalues for the systems  
+        tmp2 = AC.CheckCont(xref,Kbt,Kit,Kpt);          % Reference Condition
+        plotv( :,idx1+4*neig*(iTs-1) ) = [real(tmp1),[real(tmp2);...
+            nan(length(tmp1(:,1))-1,neig) ] ];          % Save Real Part
+        plotv( :,idx2+4*neig*(iTs-1) ) = [imag(tmp1),[imag(tmp2);...
+            nan(length(tmp1(:,1))-1,neig) ] ];          % Save Imaginary Part
+        ploteig.plotv = plotv;                          % Update Plotv vector: must be done in teh cycle otherwise the X and Y Lims are not computed properly
+        ploteig = ploteig.definePlot( idx1+4*neig*(iTs-1),idx2+4*neig*(iTs-1),...
+            1,'xlabel','Real','ylabel','Imag','linestyle',LST,'title',TIT{iTs} );
     end
+    
+    [~,~,hAxes] = ploteig.PlotPerImag( [1,3],{'Proprieta Modali nelle Varie Condizioni'},...
+        {'Proprieta Modali nelle Varie Condizioni'},'cartesian');
+    for iG = 1:length(hAxes)
+        ploteig.addModalProp(hAxes{iG});
+    end
+
     if SavFLG
         save('Data\test_conditions.mat','xref','x0');
         save('Data\contr_gains_clean.mat','Kp','Kb','Ki');
@@ -152,19 +190,4 @@ function main()
         title(ax,tit);
     end
 
-end
-
-function [wn,zita] = OmZitaCalcOLD(lam,A)
-lam = lam(abs(lam)~=0); nlam = length(lam);
-wn = nan(nlam,1); zita = wn;
-for ic = 1:nlam
-    if imag(lam(ic)) ~=0 % Check if underdamped
-        zita(ic) = imag(lam(ic))/real(lam(ic));
-        zita(ic) = 1/sqrt( 1 + zita(ic)^2 );
-        wn(ic) = -real(lam(ic))/zita(ic);
-    else
-        % TODO overdamped and critically damped
-        disp('a')
-    end
-end
 end
