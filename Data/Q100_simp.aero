@@ -1,7 +1,7 @@
 % DHV-8/100 Input File
 Q100 				% Name
 aero_database_long_trimmed.mat	% Aerodynamic Model Input File
-contr_gains_clean.mat		% Controller gains 
+contr_gains_clean2.mat		% Controller gains 
 inertia_tensor.mat			% Inertia Tensor
 propeller_data.mat			% Propeller Data
 MASSES

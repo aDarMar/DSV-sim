@@ -4,7 +4,7 @@ close all; clear; clc;
 %   OUTPUT
 %   - aero_synt:   [ M,Re,CD0,K,CL@CDmin,CLmax,alphamax,CLa,CL0,CMa,CM0,
 %                       CLda_a,CLda0,CMda_a,CMda0,CMq,CLq,Cyb,Cnb,Clb,Clp,
-%                       Cnp,Clr,Cnr ]
+%                       Cnp,Clr,Cnr,Cyp ]
 %   - aero_synt_C: [ M,Re,CMe,CM0e,CLe,CL0e,min( deltaE ),max( deltaE ) ]
 %   - aero_synt_M: [ alpha,CLm,CL0m,CMm,CM0m ]
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -12,13 +12,13 @@ addpath('Data')
 addpath('Classes')
 addpath('Functions')
 addpath('C:\Users\Ospitio\Documents\Scripts\src') % TEMPORANEO SOLO PER PLOT2TIKZ
-load('longitudinal_database_trimmed.mat')
+load('longitudinal_database_trimmed2.mat')
 
 nmfl = "Q100_simp.aero"; AC = ACclass(nmfl);
 
 nA = 20; ndE = 9; nM = 4; nh = 9;
 k = 1; h = 1; kk = 1;
-aero_synt = nan(nM*nh,19); GRF = false; DBG = true;
+aero_synt = nan(nM*nh,31); GRF = false; DBG = true;
 aero_synt_C = nan(nM*nh,8);
 %% CA vs Alpha Fit
 for iM = 1:nM
@@ -57,16 +57,16 @@ for iM = 1:nM
         %% LATERO-DIRECTIONAL
         % Stability Derivatives
         aero_synt(h,18:19) = SLAT(iS,4:5);                  % [Cyb,Cnb
-        aero_synt(h,20:29) = AeroLinRegs( SLNG(iS:iE,1),...
-            SLAT(iS:iE,6:10),alphal,alpham);                      % [Clb,Clp,Cnp,Clr,Cnr]
+        aero_synt(h,20:31) = AeroLinRegs( SLNG(iS:iE,1),...
+            SLAT(iS:iE,6:11),alphal,alpham);                      % [Clb,Clp,Cnp,Clr,Cnr]
         % Control Derivatives
 
         if GRF
-            % Stability Derivatives vs Alpha Plot
-            plotv = [SLNG(iS:iE,[1,4:8]),SLAT(iS:iE,6:10)]; % alpha,CL,CD,CM,CLda,CMda
+            % Aerodynamic Coefficients vs Alpha from DATCOM
+            plotv = [SLNG(iS:iE,[1,4:8]),SLAT(iS:iE,6:11)]; % alpha,CL,CD,CM,CLda,CMda
             auxp = CTR(iSe:iEe,[1,4:5]);
             
-
+            % Aerodynamic Coefficients from Regressions
             CL = aero_synt(h,8)*SLNG(iS:iE,1) + aero_synt(h,9);
             CD = aero_synt(h,3) + aero_synt(h,4)*...
                 (SLNG(iS:iE,4)-aero_synt(h,5)).^2;
@@ -76,7 +76,7 @@ for iM = 1:nM
                     + aero_synt(h,9+2*iP);
             end
             % Latero Directional Stability
-            for iP = 1:5
+            for iP = 1:6
                 graf(:,iP+3) = aero_synt(h,19+2*iP-1)*SLNG(iS:iE,1) ...
                     + aero_synt(h,19+2*iP);
             end
@@ -96,22 +96,22 @@ for iM = 1:nM
 
 
             %plotv = [plotv,CL,CD,graf];
-            figS = [ ones(12,1),[1,2,ones(1,8),ones(1,2)*22]',...
-                [(2:11),23:24]',[(12:21),25:26]' ];
+            figS = [ ones(13,1),[1,2,ones(1,9),ones(1,2)*24]',...
+                [(2:12),25:26]',[(13:23),27:28]' ];
             % 
             IMTIT = {'Stability Derivatives'};
-            LG = repmat({'-'},12,2);
+            LG = repmat({'-'},13,2);
             
             TIT = {'C$_L$ - $\alpha$','Polar','C$_\mathcal{M}$ - $\alpha$','C$_L_{\dot{\alpha}}$ - $\alpha$',...
                     'C$_{\mathcal{m}_{\dot{\alpha}}}$ - $\alpha$','Cl_\beta - \alpha','Cl_p - \alpha',...
-                    'Cn_p - \alpha','Cl_r - \alpha','Cn_r - \alpha','CM_{\delta_E} - \delta_E',...
+                    'Cn_p - \alpha','Cl_r - \alpha','Cn_r - \alpha','C_{Y_p} - \alpha','CM_{\delta_E} - \delta_E',...
                     'CL_{\delta_E} - \delta_E'};
-            LINS = repmat({'o','--'},12,1);
-            XLAB = repmat({'$\alpha$ [deg]'},10,1); XLAB = [XLAB;repmat({'$\delta_e$ [deg]'},2,1)]; 
+            LINS = repmat({'o','--'},13,1);
+            XLAB = repmat({'$\alpha$ [deg]'},11,1); XLAB = [XLAB;repmat({'$\delta_e$ [deg]'},2,1)]; 
             XLAB{2} = '$C_L$';
             YLAB = {'$C_L$','$C_D$','C$_\mathcal{M}$','C$_{L_{\dot{\alpha}}}$','C$_{\mathcal{M}_{\dot{\alpha}}}$',...
                 'C$_{\mathcal{L}_\beta}$','C$_{\mathcal{L}_p}$','C$_{\mathcal{N}_p}$','C$_{\mathcal{L}_r}$',...
-                'C$_{\mathcal{N}_r}$','C$_{L_{\delta_e}}$','C$_{\mathcal{M}_{\delta_e}}$' };
+                'C$_{\mathcal{N}_r}$','C$_{Y_p}$','C$_{L_{\delta_e}}$','C$_{\mathcal{M}_{\delta_e}}$' };
             plotd = DataPlot(plotv);
             for ig = 1:length(XLAB)
                 plotd = plotd.definePlot(figS(ig,2),figS(ig,3:end),figS(ig,1),'legend',LG(ig,:),...
