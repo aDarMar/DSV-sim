@@ -4,9 +4,9 @@ function [x_way,y_way,ye,bounds,temp] = BuildWaypoint(GEO,AC,Vs,gas,hs,ms,ways,t
 %   - y_way: [VIAS,M,h,hdot,PTf, --- ]. The first column is the initial
 %           condition
 %   - ye: initial state vector
-    if length(Vs) == length(gas) && length(Vs) == length(ways) && ...
+    if length(Vs) == length(gas) && ~(length(Vs) < length(ways)) && ...
             length(Vs) == length(ms)
-        nway = length(Vs);% It is actually number of waypoints + 1 because it includes the initial condition
+        nway = length(ways);% It is actually number of waypoints + 1 because it includes the initial condition
     else
         error('Some vectors have different length');
     end
@@ -72,13 +72,14 @@ function [x_way,y_way,ye,bounds,temp] = BuildWaypoint(GEO,AC,Vs,gas,hs,ms,ways,t
                 % Terminator Point
                 R = y_way(9:11,i-1)-y_way(16:18,i);     % Vector pointing from center to starting point
                 y_way(11, i) = norm(R,2);               % Turn Radius
-                
+                [xN,yE,zD] = ecef2ned(y_way(9,i-1),y_way(10,i-1),y_way(11,i-1),...
+                    y_way(14,i),y_way(15,i),0,GEO,'radians');   % Vector pointing from center to previous waypoint in NED coords. centered on the center
                 [hed,hdf,dhdf] = deltaHead(...          % Delta Heading
-                    y_way(13,i),y_way(12,i),R);
+                    y_way(13,i),y_way(12,i),[xN,yE,zD]);
                 % Rotate radius vector by delta Heding
                 n = [cos(dhdf),-sin(dhdf),0;...
                     sin(dhdf),cos(dhdf),0;...
-                    0,0,1]*R;                           % Rotates radius vector to final heading 
+                    0,0,1]*[xN,yE,zD]';                           % Rotates radius vector to final heading 
  
                 
                 n = GEO.NED2DIS(n,'N2E',y_way(14,i),y_way(15,i));

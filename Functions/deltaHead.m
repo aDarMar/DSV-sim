@@ -1,11 +1,14 @@
-function [hed,hdf,dhdf] = deltaHead(tdir,hedfi,Ri)
+function [hed,hdf,dhdf] = deltaHead(tdir,hedfi,Ri,Rc)
 %DELTAHEAD Summary of this function goes here
 %   Detailed explanation goes here
+%   INPUT
+%   - tdir: flag that specifies turn direction
+%   - hedfi: final heading of the turn [rad]
+%   - Ri: Vector pointing from center of the circle to starting point
+%       in ECEF
+%   
 % Vector of Angles swept by turn
-    hed = Ri'*[1;0;0];
-    cr =[0,1,0]*Ri;
-    % Understand thanctual angle referred to North direction
-    hed = atan2(cr,hed);
+    hed = atan2(Ri(2),Ri(1));
     if tdir > 0
         % Right Turn
         if hedfi < hed

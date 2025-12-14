@@ -69,12 +69,24 @@ function main(Aero)
 
     %% Linearization
     [Alng,Blng,~,Altd,Bltd,x0s] = Aero.LinSysComp(x0,u0);
-    ik = 5; MTlong = eye(6); 
+    ik = 1; MTrsf = eye(6); 
+    CHS = 'latdir';
+    switch CHS
+        case 'lon'
+            Amat = Alng;
+            ji = [1,3,5,7,9,11];
+        case 'latdir'
+            
+            %ji = [2,4,6,8,10,12];
+            ji = [2,4,6,10];
+            Amat = Altd;%([1:3,5],[1:3,5]);
+    end
+    
     % MTlong(1,1) = 1/x0s(1); MTlong(2,2) = MTlong(1,1);
     % MTlong(3,3) = MTlong(1,1)*Aero.cref/2;
     dx0s = zeros(13,1);
-    [~,Mod] = freeResp( Alng,dx0s,'lon',MTlong,[] );
-    dx0s([1,3,5,7,9,11]) = 5*real( Mod(ik).mode ); %x0s(1)*0.05;                                   % Perturbation in Stability Axes
+    [~,Mod] = freeResp( Amat,dx0s,CHS,MTrsf );
+    dx0s(ji) = 5*real( Mod(ik).mode )*0.1; %x0s(1)*0.05;                                   % Perturbation in Stability Axes
     t0 = 0; tfin = 180*0 + 4/(Mod(ik).zita*Mod(ik).wn);
     dx0 = dx0s;                                             % Perturbations in Body Axes
     dx0(1:3) = Aero.Wind2Body(dx0s(1:3),'W2B',alpha0,0);  
@@ -82,10 +94,16 @@ function main(Aero)
     % Non-Linear Simulation
     options = odeset('RelTol',1e-6,'AbsTol',1e-5);
     Dyn6DoF =@(t,x) Aero.DynEqs6DoF(x,u0);
+    tfin = 360;
     [tvec,xnl] = ode113(Dyn6DoF,[t0,tfin],x0+dx0,options);
     % Linear Simulation
-    [xl,Mod] = freeResp(Alng,dx0s,'lon',MTlong,[],tvec);
+    [xl,Mod] = freeResp(Amat,dx0s,CHS,MTrsf,tvec);
     xl = x0s' + real(xl);                % xl should be real but some very small imaginary parts are possible (1e-14)
+    
+    % % TEST
+    % fn = @(t,x) Alng*x(:);
+    % [tst1,tst2] = ode45( fn,[0,tfin],dx0s([1,3,5,7,9,11]) );
+    % figure; plot( tst1,tst2(:,1) )
     % Convert Results back in Body axes
     temp = xl';
     temp(1:3,:) = Aero.Wind2Body(temp(1:3,:),'W2B',alpha0,0);
@@ -99,37 +117,45 @@ function main(Aero)
     end
     % Nonlinear Forces
     [F,FA,FT,FW] = Aero.Forces(xnl',u0,tvec);
-    GRF = false;
+    for tv = 1:length(tvec)
+        dxnl(tv,:) = Aero.DynEqs6DoF(xnl(tv,:)',u0)';
+    end
+
+    GRF = true;
     if GRF
+        V0nl = sqrt( xnl(:,1).^2 + xnl(:,3).^2 + xnl(:,2).^2 );
+        V0l = sqrt( temp(:,1).^2 + temp(:,3).^2 + temp(:,2).^2);
         plotv = [tvec,xnl,temp,F',FA',FT',FW',...
             atan( xnl(:,3)./xnl(:,1) )*180/pi,atan( temp(:,3)./temp(:,1) )*180/pi,...
-            sqrt( xnl(:,1).^2 + xnl(:,3).^2 ),sqrt( temp(:,1).^2 + temp(:,3).^2 ),...
-            tvec*0+x0s(1),xnl(:,11)*180/pi,temp(:,11)*180/pi ];
+            V0nl,V0l,...
+            tvec*0+x0s(1),xnl(:,11)*180/pi,temp(:,11)*180/pi, ...
+            asin( xnl(:,2)./V0nl )*180/pi,...
+            asin( temp(:,2)./V0l )*180/pi ];
 
-        % [ t, xnl(1:12), xl(1:12), F(1:3), M(1:3), FA,    FT,     FW,    alphaNL, alphaL, Vnl, VL, V0, tetaNL deg, tetaL deg ]
+        % [ t, xnl(1:12), xl(1:12), F(1:3), M(1:3), FA,    FT,     FW,    alphaNL, alphaL, Vnl, VL, V0, tetaNL deg, tetaL deg, beta nl, beta L ]
         %   1  2:14       15:27     28:30   31:33   34:39  40:45   46:51   52       53      54   55 56  57          58
         %
         figS = [ ones(13,2), (2:14)', (15:27)' ]; % [figID,xidx,yidx1,yidx2]
 
         Aux = [ 2*ones(6,1),ones(6,1),(28:33)',(34:39)',(40:45)',(46:51)' ];
         figS = [ figS,nan( length(figS(:,1)), length(Aux(1,:)) - length(figS(1,:)) ) ; Aux  ];
-        Aux = [ 3*ones(2,1),ones(2,1),[52,53,57:58;54:56,nan] ];
+        Aux = [ 3*ones(2,1),ones(2,1),[52,53,57:60;54:56,nan(1,3)] ];
         figS = [ figS,nan( length(figS(:,1)), length(Aux(1,:)) - length(figS(1,:)) ) ; Aux  ];
         %figS(4:7,4) = 114:117;% u,w,q,teta
 
         IMTIT = {'Stability Derivatives'};
         LG = repmat({'-'},18,4);
-        LINS = repmat({'-','--','-.',':'},21,1);
+        LINS = repmat({'-','--','-.',':','-','--'},21,1);
         XLAB = repmat({'t [s]'},21,1); 
         YLAB = {'u [m/s]','v [m/s]','w [m/s]','p [rad/s]','q [rad/s]',...
             'r [rad/s]','x$_{CG}$ [m]','y$_{CG}$ [m]','z$_{CG}$ [m]',...
-            '$\psi$ [rad]','$\theta$ [rad]','$\phi$ [m/s]','m','F$_{B x}$ [N]',...
+            '$\phi$ [rad]','$\theta$ [rad]','$\psi$ [rad]','m','F$_{B x}$ [N]',...
             'F$_{B y}$ [N]','F$_{B z}$ [N]','$\mathcal{L}$ [Nm]','$\mathcal{M}$ [Nm]',...
-            '$\mathcal{N}$ [Nm]','$\alpha, \theta$ [deg]','V [m/s]' };
+            '$\mathcal{N}$ [Nm]','$\alpha, \theta, \beta$ [deg]','V [m/s]' };
 
         %% Time Response
         plto = DataPlot(plotv);
-        IMSAV = {'State Variables_ING','Forces in Body_ING'};
+        %IMSAV = {'State Variables_trim','Forces in Body_trim','Angles trim'};
         IMSAV = {'State Variables Phugoid','Forces in Body Phugoid','Angles Phugoid'};
         IMTIT = {'State Variables','Forces in Body','Angles'};
         TIT = {'u','v','w','p','q','r','x_{CG}','y_{CG}','z_{CG}','\psi',...
@@ -141,7 +167,9 @@ function main(Aero)
         end
         LG{20,1} = '$\alpha$ Non lineare'; LG{20,2} = '$\alpha$ Lineare'; 
         LG{20,3} = '$\theta$ Non lineare'; LG{20,4} = '$\theta$ Lineare'; 
+        LG{20,5} = '$\beta$ Non lineare'; LG{20,6} = '$\beta$ Lineare';
         LG{21,1} = 'V Non lineare'; LG{21,2} = 'V Lineare';  LG{21,3} = 'V$_0$';
+        LINS(21,:) = repmat({'-',':'},1,3);
         for ig = 1:length(XLAB)
             yidx = figS(ig, ~isnan( figS(ig,:) ) );
             plto = plto.definePlot(figS(ig,2),yidx(3:end),...
@@ -154,24 +182,24 @@ function main(Aero)
         figs = plto.PlotPerImag( 3,IMSAV,IMTIT,'cartesian',false );
         %% Phasor Plot
         % Normalised Eigenvectors
-        MTlong(1,1) = 1/x0s(1); MTlong(2,2) = MTlong(1,1);
-        MTlong(3,3) = MTlong(1,1)*Aero.cref/2;
-        [~,Mod] = freeResp( Alng,dx0s,'lon',MTlong,[] );
-
-        IMSAV = {'Phasor Plot Reduced Phugoid'}; IMTIT = {'Phasor Plot'};
-        figS = [ones(2,1),[1:5;6:10] ];
-        figS = [ones(2,1),[1:4;5:8] ];
-        LG = repmat({'$\frac{u}{U_0}$',...
-            '$\frac{w}{U_0}$','$q$','$\theta$'},2,1);
-        plotv = [Mod(3).mode([1:3,6]);...
-            Mod(4).mode([1:3,6])/Mod(4).mode(6)]; plotv = plotv(:)';
-        pltrad = DataPlot( plotv );
-        for ig = 1:length(figS(:,1))
-            yidx = figS(ig, ~isnan( figS(ig,:) ) );
-        pltrad = pltrad.definePlot( figS(ig,2),yidx(3:end),...
-                figS(ig,1),'legend',LG(ig,:),'grid','minor' );
-        end
-        figs = pltrad.PlotPerImag( [1,2],IMSAV,IMTIT,'polar',false );
+        % % MTlong(1,1) = 1/x0s(1); MTlong(2,2) = MTlong(1,1);
+        % % MTlong(3,3) = MTlong(1,1)*Aero.cref/2;
+        % % [~,Mod] = freeResp( Alng,dx0s,'lon',MTlong,[] );
+        % % 
+        % % IMSAV = {'Phasor Plot Reduced Phugoid'}; IMTIT = {'Phasor Plot'};
+        % % figS = [ones(2,1),[1:5;6:10] ];
+        % % figS = [ones(2,1),[1:4;5:8] ];
+        % % LG = repmat({'$\frac{u}{U_0}$',...
+        % %     '$\frac{w}{U_0}$','$q$','$\theta$'},2,1);
+        % % plotv = [Mod(3).mode([1:3,6]);...
+        % %     Mod(4).mode([1:3,6])/Mod(4).mode(6)]; plotv = plotv(:)';
+        % % pltrad = DataPlot( plotv );
+        % % for ig = 1:length(figS(:,1))
+        % %     yidx = figS(ig, ~isnan( figS(ig,:) ) );
+        % % pltrad = pltrad.definePlot( figS(ig,2),yidx(3:end),...
+        % %         figS(ig,1),'legend',LG(ig,:),'grid','minor' );
+        % % end
+        % % figs = pltrad.PlotPerImag( [1,2],IMSAV,IMTIT,'polar',false );
         % 
         % plto.plotPolar([Mod(3).mode([1:3,5:6])/Mod(3).mode(5),...
         %     Mod(6).mode([1:3,5:6])/Mod(5).mode(6)],LEG);
@@ -221,14 +249,24 @@ function main(Aero)
             plotv(:,2*iG) = imag(Sols(iG,:)');
         end
         plrl = DataPlot( plotv );
-        plrl = plrl.rootLocus( VarSpan(i,:),Gain{i},true );
+        plrl = plrl.rootLocus( VarSpan(i,:),Gain{i},false );
     end
     % plrl.definePlot( [1:2:sz(1)*2]',[2:2:sz(1)*2]',1 );
     % plrl.PlotPerImag( [1,1],IMSAV,IMTIT,'cartesian',false );
 
 end
 %% Functions
-function [Xs,Md] = freeResp(A,x0,flg,MLNG,MLTD,tvec)
+function [Xs,Md] = freeResp(A,x0,flg,Mtrs,tvec)
+%FREERESP: function that calculates the analitycal free response of a
+%linear system.
+%   INPUT
+%   - A: state matrix
+%   - x0: initial condition
+%   - flg: flag specifying if the dynamic is longitudinal or
+%       latero-directional
+%   - Mtrs: matrix used to transform the eigenvectors
+%   -tvec: time vector where the solution is computed
+% ----------------------------------------------------------------------- %
     switch flg
         case 'lon'
             i = [1,3,5,7,9,11];
@@ -236,16 +274,21 @@ function [Xs,Md] = freeResp(A,x0,flg,MLNG,MLTD,tvec)
         case 'lonred'
             i = [1,3,5,11];
             j = [1:3,6];
-            MLNG = MLNG(j,j);
+            Mtrs = Mtrs(j,j);
+        % case 'latdir'
+        %     i = [2,4,6,8,10,12];
+        %     j = 1:6;
+        % case 'latdired'
         case 'latdir'
-            i = [2,4,6,8,10,12];
-        case 'latdired'
-    
+            i = [2,4,6,10];
+            j = [1:3,5];
+            Mtrs = Mtrs(j,j);
     end
-    A = A(j,j);
-    x0 = x0(i);
-    Md = ModalPrp(A,x0,MLNG);
-    if nargin > 5
+    A = A(j,j);                     % Reduce matrix if flg is 'reduced'
+    x0 = x0(i);                     % Take just the state varibales needed
+    Md = ModalPrp(A,x0,Mtrs);
+    if nargin > 4
+        % If tvec is passed the function gives the response
         nt = length(tvec); nmod = length(Md);
         Xs = zeros(13,nt);
         for it = 1:nt
@@ -262,6 +305,7 @@ function [Xs,Md] = freeResp(A,x0,flg,MLNG,MLTD,tvec)
         end
         Xs = Xs';
     else
+        % Otherwise returns just the modal properties
         Xs = [];
     end
 end
