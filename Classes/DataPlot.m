@@ -126,7 +126,7 @@ classdef DataPlot %< handle
                     end
                 else
                     default = [ min( min( abs(obj.plotv(:,idx)) ) ),...
-                        max( max( abs(obj.plotv(:,idx)) ) ) ];
+                        max( max( abs(obj.plotv(:,idx)) ) ),-1,1 ];
                 end
                 
                 % for i = 1:2
@@ -455,7 +455,7 @@ classdef DataPlot %< handle
                     % complex
                     md = abs( pvec(:,yidx) );
                     phs = angle( pvec(:,yidx) );       % phase of each element
-                    lin = polarplot(ax,[phs,phs]*180/pi,[0,md],...
+                    lin = polarplot(ax,[phs,phs],[0,md],...
                         'LineWidth',1.3,...
                         'Color',obj.COLS(k,:),'LineStyle',lst );
 
