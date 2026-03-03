@@ -6,9 +6,9 @@
 %       frame. lng, lat sono latitudine (geodetica) e quota in rad.
 % Ref: https://www.unavco.org/software/geodetic-utilities/geoid-height-calculator/geoid-height-calculator.html
 % ----------------------------------------------------------------------- %
-lngsp = -180:10:180;
-latsp = -90:5:90;
-hsp = 0:100:6000;
+lngsp = -180:90:180;
+latsp = -90:45:90;
+hsp = 0:2000:6000;
 [lng,lat,hsp] = meshgrid(lngsp,latsp,hsp);
 lng = lng(:); lat = lat(:); hsp = hsp(:);
 CHS = 'cst';
@@ -21,9 +21,10 @@ switch CHS
         %lng(lng>180) = lng(lng>180) - 360;
         hsp = hsp(:) - N(:);      % h ort = hellips - Ngeo
         hsp(hsp<0) = 0;
-        w = atmoshwm(lat(:),lng(:),hsp(:)-N(:),'model','quiet'); % Meridional (xN) and zonal (xE) wind
+        w = atmoshwm(lat(:),lng(:),hsp(:),'model','quiet'); % Meridional (xN) and zonal (xE) wind
+        hsp = hsp(:) + N(:);      % h ort = hellips - Ngeo
 end
 
-windpx = scatteredInterpolant( lng*pi/180,lat*180/pi,hsp-N(:),w(:,1) );
+windpx = scatteredInterpolant( lng*pi/180,lat*180/pi,hsp,w(:,1) );
 windpy = scatteredInterpolant( lng*pi/180,lat*180/pi,hsp-N(:),w(:,2) );
-save('Data\Wind_Simp.mat','windpx','windpy');
+save('Data\Wind.mat','windpx','windpy');

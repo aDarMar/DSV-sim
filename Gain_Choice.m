@@ -103,7 +103,6 @@ function main()
     
     LST = repmat({'osquare'},1,2*neig); LST(neig+1:2*neig) = repmat({'odiamond'},1,neig);
     
-
     ploteig = DataPlot(plotv);
     ploteig = ploteig.definePlot([1:neig,2*neig+1:3*neig],...
         [neig+1:2*neig,3*neig+1:4*neig],1,'legend', ...

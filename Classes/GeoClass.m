@@ -3,18 +3,28 @@ classdef GeoClass < referenceEllipsoid
     %   Detailed explanation goes here
     
     properties
-        %a
-        %b
-        %e
-        %f
         LMercfs
     end
     
     methods
         function obj = GeoClass()
-            %GEOCLASS Construct an instance of this class
-            %   Detailed explanation goes here
+        % GEOCLASS Constructor for the GeoClass object
+        %   This constructor initializes a GeoClass instance that inherits
+        %   from the referenceEllipsoid superclass with the WGS84 ellipsoid
+        %   model. Upon instantiation, it automatically calculates and stores
+        %   the Mercator scale factor property (LMercfs) for map projections.
+        %   Syntax:
+        %       geoObj = GeoClass()
+        %
+        %   OUTPUT:
+        %       - obj: GeoClass object with initialized WGS84 ellipsoid
+        %             properties and calculated Mercator scale factor
+        % --------------------------------------------------------------- %
+            % Initialize as WGS84 reference ellipsoid (inherits from superclass)
             obj = obj@referenceEllipsoid('WGS84');
+
+            % Calculate and store Mercator scale factor for map projection
+            % (OLD)
             obj.LMercfs = obj.CalcLMer();
         end
         
@@ -36,32 +46,49 @@ classdef GeoClass < referenceEllipsoid
         end
         
         function R = LatLon2Vec(obj,lat,lon,h)
-        %LATLON2VEC: function that gives the position vector in ECEF
-        %coordinates given geodetic latitude, longitude and geodetic
-        %altitude using built in Matlab mapping toolbox
+        % LATLON2VEC: Converts geodetic coordinates to ECEF position vectors
+        %   This function transforms geodetic (latitude, longitude, altitude)
+        %   coordinates into Earth-Centered, Earth-Fixed (ECEF) Cartesian
+        %   position vectors using MATLAB's Mapping Toolbox geodetic2ecef function.
         %   INPUT
         %   -lat: geodetic latiude [rad]
         %   -lon: longitude [rad]
         %   - h: geodetic altitude [m]
-        if length(lat) ~= length(lon) && length(lat) ~= length(h)
-            error('Latitude,Longitude and Height vector must have the same number of elements');
-        end
+        %   OUTPUT:
+        %    - R: 3xN matrix of ECEF position vectors [meters]
+        %            Each column represents [X; Y; Z] coordinates for one point
+        % --------------------------------------------------------------- %
+        % Validate input dimensions to ensure consistent vector lengths
+            if length(lat) ~= length(lon) && length(lat) ~= length(h)
+                error('Latitude,Longitude and Height vector must have the same number of elements');
+            end
+            % Determine number of coordinates to process
             pts = length(lat);
+            % Preallocate output matrix for efficiency (3 rows: X, Y, Z coordinates)
             R = nan(3,pts);
             [R(1,:),R(2,:),R(3,:)] = geodetic2ecef(obj,lat,lon,h,'radians');
-
         end
 
         function [Rnu,m] = rhumbLine(obj,lat,lng)
-        %RHUMBLINE: function that calculates the path along the rhumb line
-        %for the points given. It uses MATLAB navigation toolbox
-        %   INPUT
-        %   -lat: [lat(A),lat(B)]  geodetic latitudes of teh starting and ending
-        %       points [rad]
-        %   -lng: [lng(A),lng(B)] longitudes of teh starting and ending
-        %       points [rad]            
+        % RHUMBLINE: Calculate rhumb line azimuth and distance between two points
+        %   This function computes the constant-bearing (rhumb line) navigation
+        %   parameters between two geographic points using MATLAB's Navigation
+        %   Toolbox. A rhumb line maintains a constant bearing (azimuth) and
+        %   crosses all meridians at the same angle.
+        %   INPUTS:
+        %       - lat: 1x2 vector of geodetic latitudes [radians]
+        %               lat(1): Latitude of starting point A
+        %               lat(2): Latitude of ending point B
+        %       - lng: 1x2 vector of longitudes [radians]
+        %               lng(1): Longitude of starting point A  
+        %               lng(2): Longitude of ending point B
+        %   OUTPUT:
+        %       - Rnu: Azimuth angle from pint A to B
+        %       - m: distange laong the rhumb line between points A and B
+        % --------------------------------------------------------------- %
             Rnu = azimuth("rh",lat(1),lng(1),lat(2),lng(2),obj,'radians');
-            m = distance("rh",lat(1),lng(1),lat(2),lng(2),obj,'radians');
+            % distance gives a linear distance in the units of the semimajor axis of the ellipsoid
+            m = distance("rh",lat(1),lng(1),lat(2),lng(2),obj,'radians')*obj.SemimajorAxis;
         end
 
         %% 
@@ -187,64 +214,79 @@ classdef GeoClass < referenceEllipsoid
         end
         
         function [Vout,M] = NED2DIS(~,Vin,flg,lat,lng)
-        %NED2DIS: function that transforms a vector form ECEF to NED system
-        %and vice-versa
-        %   INPUT
-        %   - Vin: vector in teh starting reference frame
-        %   - flg: 'N2E' NED to ECEF and 'E2N' ECEF to NED
-        %   - lat: [rad] geodetic latitude
-        %   - lng: [rad[ longitude
+        % NED2DIS: Transforms vectors between ECEF and NED coordinate systems
+        %   This function converts vectors between Earth-Centered, Earth-Fixed (ECEF)
+        %   and North-East-Down (NED) local tangent plane coordinate systems.
+        %   The transformation accounts for geographic position (latitude/longitude)
+        %   to define the local NED reference frame orientation.
+        %   INPUTS:
+        %       - Vin: 3xN matrix of vectors in the starting reference frame
+        %             Columns represent individual vectors [X; Y; Z] or [N;
+        %             E; D] and are given in [m]
+        %       - fl: Transformation direction flag:
+        %             'E2N': Transform from ECEF to NED coordinates
+        %             'N2E': Transform from NED to ECEF coordinates
+        %       - lat: Geodetic latitude(s) [rad] defining NED frame origin(s)
+        %             Scalar: Single latitude for all vectors
+        %             Vector: Multiple latitudes for multiple vectors
+        %       - lng: Longitude(s) [rad] defining NED frame origin(s)
+        %             Scalar: Single longitude for all vectors
+        %             Vector: Multiple longitudes for multiple vectors
+        %   OUTPUTS:
+        %     Vout  - 3xN matrix of vectors in the target reference frame
+        %     M     - Transformation matrix used for the conversion
         % Tested with ecef2ned matlab function
-            % If Latitude and Longitude are given as vectors 
+        % --------------------------------------------------------------- %
+            % If Latitude and Longitude are given as vectors
             nl = length(lat); nm = length(lng); nv = length(Vin(1,:));
-            if nl > 1 && (nl ~= nm) 
+            % Ensure latitude and longitude vectors have matching lengths
+            if nl > 1 && (nl ~= nm)
                 error('Number of Latitudes and Longitudes given is not equal')
             end
+            % Prevent ambiguous case: multiple vectors with multiple locations
             if nv > 1 && nl>1
                 error('You can pass either multiple lat-long pairs with one vector, or one lat-long pair with multiple vectors. Not both.')
             end
+            % Validate transformation flag
             if ~isequal(flg,'N2E') && ~isequal(flg,'E2N')
                 error('Flaf must be E2N or N2E')
             end
+    
             if nv == 1
-                % One vector multiple lat-lon
+                % CASE 1: Single Vector, Multiple Locations
                 Vout = nan(3,nl);
                 for j = 1:nl
+                    % Compute trigonometric values for current position
                     sm = sin(lat(j)); cm = cos(lat(j));
                     sl = sin(lng(j)); cl = cos(lng(j));
+                    % Define ECEF to NED transformation matrix
+                    % This matrix rotates from ECEF to local NED frame
                     M = [-sm*cl,-sm*sl,cm; -sl,cl,0; -cm*cl,-cm*sl,-sm];% ECEF2NED
+                    % For NED to ECEF transformation, use transpose
                     if isequal(flg,'N2E')
                         M = M';
                     end
+                    % Apply transformation to input vector
                     Vout(:,j) = M*Vin(:);
                 end
             else
-                % Multiple vectors, one lat/lon
+                % CASE 2: Multiple Vectors, Single Location
                 Vout = nan(3,nv);
+                % Compute trigonometric values for the single position
                 sm = sin(lat); cm = cos(lat);
-                    sl = sin(lng); cl = cos(lng);
-                    M = [-sm*cl,-sm*sl,cm; -sl,cl,0; -cm*cl,-cm*sl,-sm];% ECEF2NED
-                    if isequal(flg,'N2E')
-                        M = M';
-                    end
+                sl = sin(lng); cl = cos(lng);
+                % Define ECEF to NED transformation matrix
+                M = [-sm*cl,-sm*sl,cm; -sl,cl,0; -cm*cl,-cm*sl,-sm];% ECEF2NED
+                if isequal(flg,'N2E')
+                    M = M';
+                end
+                % Process each vector using the same transformation matrix
                 for j = 1:nv
                     Vout(:,j) = M*Vin(:,j);
                 end
-
-
-
             end
-
-
-            
-            
-                
-    
-                
-
         end
 
-    
     end
 end
 

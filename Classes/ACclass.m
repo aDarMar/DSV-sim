@@ -1,172 +1,186 @@
 classdef ACclass
-    %ACCLASS Summary of this class goes here
-    %   Detailed explanation goes here
+%ACCLASS Summary of this class goes here
+%   Detailed explanation goes here
+
+properties
+    Name
     
-    properties
-        Name
-        
-        MTOM                                                            % Maximum TakeOff Mass [kg]
-        MTO                                                             % Max. TO Weight
-        MLND                                                            % Max LND Weight
-        MZF                                                             % Max Zero Fuel [Kg]
-        
-        Sw
-        bw
-        cref
-        ARw
-        
-        I           % Inertia Tensor [Kg m^2]
-        CG          % Center of Mass in constructive frame [m]
-        
-        CD0
-        K
-        CLcdm       % cl@cdMIN [1/DEG]
-        CLmax
-        CLa         % CL vs alpha linear slope [1/deg]
-        CL0
-        CMa         % CM vs alpha slope. Moments are referred to the center of mass [1/deg] 
-        CM0
-        CLad        % CL vs alpha dor derivative [rad^-1 s^-1]   
-        CMad
-        CLq
-        CMq
-        CMM         % dCM/dM at given Alpha
-        CLde
-        CMde
-        
-        Cyb
-        Cyp
-        Cnb
-        Clb
-        Clp
-        Cnp
-        Clr
-        Cnr
-        
-        CL
-        CM
-        polar
-        
-        Kp
-        Kb
-        Ki
-        lat % 2zita*wn wn^2
-        Klat
-        
-        EnPs
-        Neng
-        RPM
-        Pmax    % Max Power @S/L
-        Dprop
-        nEn         % Exponent for Reduction of P with altitude
-        aTS      % Thust Coefficients
-        aTC
-    end
+    MTOM                                                            % Maximum TakeOff Mass [kg]
+    MTO                                                             % Max. TO Weight
+    MLND                                                            % Max LND Weight
+    MZF                                                             % Max Zero Fuel [Kg]
     
-    methods
-        function obj = ACclass(file_name)
-            %ACCLASS Construct an instance of this class
-            %   Detailed explanation goes here
-            %   INPUT
-            %   - data_name: name of .mat file containing the aerodynamic
-            %               database
-            %   - MSs: vector containing all the required masses
-            %               [MTOM,MZF]
-            %   - Wng: vector containing [Sw,bw] for the wing
-            %obj.Property1 = inputArg1 + inputArg2;
-            
-            % Masses
-            [obj,data_name,gain_file,inert_file,prop_file] = ...
-                obj.read_input(file_name);
-            obj.ARw = obj.bw^2/obj.Sw;
-            %% Propeller Data
-            try
-            load(prop_file,'prop_data_simp','prop_data_comp'); % prop_data = [k0,kv,Jinf,Jmax] Jinf,Jmax are the bounds of the advance ratio where the regression is valid
-            obj.aTS.cfs = prop_data_simp(1:2);
-            obj.aTS.bds = prop_data_simp(3:4);
-            obj.aTC.cfs = prop_data_comp;
-            obj.nEn = 0.7;
-            catch ERR
-                 warning('Could not load Engine Data')
-                obj.aTS.cfs = nan;
-                obj.aTS.bds = nan;
-                obj.aTC.cfs = nan;
-            end
-            %% Inertia
-            try
+    Sw
+    bw
+    cref
+    ARw
+    
+    I           % Inertia Tensor [Kg m^2]
+    CG          % Center of Mass in constructive frame [m]
+    
+    CD0
+    K
+    CLcdm       % cl@cdMIN [1/DEG]
+    CLmax
+    CLa         % CL vs alpha linear slope [1/deg]
+    CL0
+    CMa         % CM vs alpha slope. Moments are referred to the center of mass [1/deg] 
+    CM0
+    CLad        % CL vs alpha dor derivative [rad^-1 s^-1]   
+    CMad
+    CLq
+    CMq
+    CMM         % dCM/dM at given Alpha
+    CLde
+    CMde
+    
+    Cyb
+    Cyp
+    Cnb
+    Clb
+    Clp
+    Cnp
+    Clr
+    Cnr
+    
+    CL
+    CM
+    polar
+    
+    Kp
+    Kb
+    Ki
+    lat % 2zita*wn wn^2
+    Klat
+    
+    EnPs
+    Neng
+    RPM
+    Pmax    % Max Power @S/L
+    Dprop
+    nEn         % Exponent for Reduction of P with altitude
+    aTS      % Thust Coefficients
+    aTC
+end
+
+methods
+    function obj = ACclass(file_name)
+    %ACCLASS: Constructs an instance of the ACclass.
+    % It initializes the aircraft model properties by loading necessary
+    % data, including propeller data, inertia tensor, aerodynamic
+    % database, and controller gains. It also defines various
+    % interpolation function handles for aerodynamic derivatives.
+    % INPUTS:
+    %   file_name: String containing the path/name of the configuration
+    %              file that specifies the locations of the aerodynamic
+    %              data, engine data, inertia data, and controller gains.
+    %
+    % OUTPUTS:
+    %   obj: An initialized ACclass object with properties populated
+    %        (e.g., obj.I, obj.CG, obj.CD0, obj.CL, etc.).
+    % --------------------------------------------------------------- %
+        %% --------------------------------------------------------- %%
+        % FILE PATHS
+        % The output arguments from obj.read_input are the file paths needed
+        % for subsequent loading steps.
+        [obj,data_name,gain_file,inert_file,prop_file] = ...
+            obj.read_input(file_name);
+        obj.ARw = obj.bw^2/obj.Sw;
+%/* \label{cod:ACclass:const_1} (continua...)*/
+%/* (continua da \ref{cod:ACclass:const_1} )*/
+        %% --------------------------------------------------------- %% 
+        % PROPELLER DATA
+        % Loads and assigns coefficients for both the propeller efficiency models.
+        try
+            % prop_data_simp = [k0, kv, Jinf, Jmax] where Jinf, Jmax are the 
+            % bounds of the advance ratio where the linear regression is valid.
+            load(prop_file,'prop_data_simp','prop_data_comp'); 
+            obj.aTS.cfs = prop_data_simp(1:2);  % Coefficients for the simple model (linear regression on V^3).
+            obj.aTS.bds = prop_data_simp(3:4);  % Bounds (Jinf, Jmax) for the simple model.
+            obj.aTC.cfs = prop_data_comp;       % Coefficients for the complete model (higher-order polynomial).
+            obj.nEn = 0.7;                      % Coefficient for Pmax dependency on altitude
+        catch ERR
+             warning('Could not load Engine Data')
+            obj.aTS.cfs = nan;
+            obj.aTS.bds = nan;
+            obj.aTC.cfs = nan;
+        end
+
+        %% --------------------------------------------------------- %%  
+        % INERTIA
+        % Loads the Inertia Tensor (relative to CG) and the CG position vector.
+        try
             load(inert_file,'Inertia_Tensor','CG')
             obj.I = Inertia_Tensor;
             obj.CG = CG;
-            catch ERR
-                warning('Could not load Inertia Data')
-                obj.I = nan(3);
-                obj.CG = nan;
-            end
-            %% Definition of Interpolating Functions
-            % aero_synt and aero_synt_M are generated by the
-            % BuildAeroModel.m file.
-            % aero_synt = [ M,Re,CD0,K,CL@CDmin,CLmax,alphamax,CLa,CL0,CMa,CM0,
-            %               CLda_a,CLda0,CMda_a,CMda0,CMq,CLq,Cyb,Cnb,Clb,Clp,
-            %               Cnp,Clr,Cnr ]
-            % aero_synt_M = [ alpha,CLm,CL0m,CMm,CM0m ]
-            % aero_synt_C: [ M,Re,CMe,CM0e,CLe,CL0e,min( deltaE ),max( deltaE ) ]
-            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            try
-            load(data_name,'aero_synt','aero_synt_M','aero_synt_C')           % TODO: includere anche condizioni T/O e Land
+        catch ERR
+            warning('Could not load Inertia Data')
+            obj.I = nan(3);
+            obj.CG = nan;
+        end
+%/* \label{cod:ACclass:const_2} (continua...)*/
+%/* (continua da \ref{cod:ACclass:const_2} )*/
+        %% --------------------------------------------------------- %%  
+        % DEFINITION OF INTERPOLATING FUNCTIONS
+        % Initializes scattered interpolants for the aerodynamic coefficients
+        % as functions of Mach number (M) and Reynolds number (Re).
+        % Data is generated by an external script (BuildAeroModel.m).
+        % aero_synt = [ M,Re,CD0,K,CL@CDmin,CLmax,alphamax,CLa,CL0,CMa,CM0,
+        %               CLda_a,CLda0,CMda_a,CMda0,CMq,CLq,Cyb,Cnb,Clb,Clp,
+        %               Cnp,Clr,Cnr,Cyp ]
+        % aero_synt_M = [ alpha,CLm,CL0m,CMm,CM0m ]
+        % aero_synt_C: [ M,Re,CMe,CM0e,CLe,CL0e,min( deltaE ),max( deltaE ) ]
+        % ----------------------------------------------------------- %
+        try
+            load(data_name,'aero_synt','aero_synt_M','aero_synt_C')      
             obj.CD0 = scatteredInterpolant(aero_synt(:,1),...           
-                aero_synt(:,2),aero_synt(:,3) );                        % CD0 interpolation
+                aero_synt(:,2),aero_synt(:,3) );                        % Zero-lift Drag Coefficient (CD0) interpolation
             obj.K = scatteredInterpolant(aero_synt(:,1),...             
-                aero_synt(:,2),aero_synt(:,4) );                        % CL@CDmin interpolation
+                aero_synt(:,2),aero_synt(:,4) );                        % Induced Drag factor (K) interpolation
             obj.CLcdm = scatteredInterpolant(aero_synt(:,1),...       
-                aero_synt(:,2),aero_synt(:,5) );                        % CL@CDmin interpolation
+                aero_synt(:,2),aero_synt(:,5) );                        % CL at minimum drag (CL@CDmin) interpolation
             obj.CLmax = scatteredInterpolant(aero_synt(:,1),...         
-                aero_synt(:,2),aero_synt(:,6) );                        % CLmax interpolation
+                aero_synt(:,2),aero_synt(:,6) );                        % Maximum Lift Coefficient (CLmax) interpolation
             obj.CLa = scatteredInterpolant(aero_synt(:,1),...         
-                aero_synt(:,2),aero_synt(:,8) );                        % CLa interpolation
+                aero_synt(:,2),aero_synt(:,8) );                        % Lift Curve Slope (CLa) interpolation
             obj.CL0 = scatteredInterpolant(aero_synt(:,1),...         
-                aero_synt(:,2),aero_synt(:,9) );                        % CL0 interpolation
+                aero_synt(:,2),aero_synt(:,9) );                        % Lift at zero Angle of Attack (CL0) interpolation
             obj.CMa = scatteredInterpolant(aero_synt(:,1),...         
-                aero_synt(:,2),aero_synt(:,10) );                       % CLa interpolation
+                aero_synt(:,2),aero_synt(:,10) );                       % Pitching Moment Slope (CMa) interpolation
             obj.CM0 = scatteredInterpolant(aero_synt(:,1),...         
-                aero_synt(:,2),aero_synt(:,11) );                       % CM0 interpolation
+                aero_synt(:,2),aero_synt(:,11) );                       % Pitching Moment at zero AoA (CM0) interpolation
             obj.CLq = scatteredInterpolant(aero_synt(:,1),...     
-                aero_synt(:,2),aero_synt(:,17) );                        % CLq interpolation
+                aero_synt(:,2),aero_synt(:,17) );                       % Lift due to pitch rate (CLq) interpolation
             obj.CMq = scatteredInterpolant(aero_synt(:,1),...     
-                aero_synt(:,2),aero_synt(:,16) );                       % CMq interpolation
+                aero_synt(:,2),aero_synt(:,16) );                       % Pitching Moment due to pitch rate (CMq) interpolation
             obj.Cyb = scatteredInterpolant(aero_synt(:,1),...           
-                aero_synt(:,2),aero_synt(:,18) );                       % Cyb interpolation
+                aero_synt(:,2),aero_synt(:,18) );                       % Side force due to sideslip (Cyb) interpolation
             obj.Cnb = scatteredInterpolant(aero_synt(:,1),...           
-                aero_synt(:,2),aero_synt(:,19) );                       % Cnb interpolation
-            % [Clb,Clp,Cnp,Clr,Cnr] are given as a function of alpha also
-
-
-            obj.Clb = interpAlpha(20);                                  % Clb interpolation
-            obj.Clp = interpAlpha(22);                                  % Clp interpolation
-            obj.Cnp = interpAlpha(24);                                  % Cnp interpolation
-            obj.Clr = interpAlpha(26);                                  % Clr interpolation
-            obj.Cnr = interpAlpha(28);                                  % Cnr interpolation
-            obj.Cyp = interpAlpha(30);                                  % Cyp interpolation
-
-            obj.CL = @CLvsAoA;
-            obj.CM = @(M,Re,alpha) obj.CMa(M,Re)*alpha + obj.CM0(M,Re);
-            % dCL/dad
-            CH1 = scatteredInterpolant(aero_synt(:,1),...        
-                aero_synt(:,2),aero_synt(:,12) );                       
-            CH2 = scatteredInterpolant(aero_synt(:,1),...        
-                aero_synt(:,2),aero_synt(:,13) );
-            obj.CLad = @(M,Re,alpha) CH1(M,Re)*alpha + CH2(M,Re);
-            % dCM/dad
-            CH3 = scatteredInterpolant(aero_synt(:,1),...        % CLad interpolation
-                aero_synt(:,2),aero_synt(:,14) );
-            CH4 = scatteredInterpolant(aero_synt(:,1),...        % CLad interpolation
-                aero_synt(:,2),aero_synt(:,15) );
-            obj.CMad = @(M,Re,alpha) CH3(M,Re)*alpha + CH4(M,Re);
+                aero_synt(:,2),aero_synt(:,19) );                       % Yawing moment due to sideslip (Cnb) interpolation
+%/* \label{cod:ACclass:const_3} (continua...)*/
+%/* (continua da \ref{cod:ACclass:const_3} )*/
+            % [Clb, Clp, Cnp, Clr, Cnr, Cyp] are given as a function of alpha (linear fit)
+            % and require the auxiliary function interpAlpha. Indices i and i+1
+            % correspond to the slope (dCA/dAlpha) and the intercept (CA@Alpha=0).
             
+            obj.Clb = interpAlpha(20);                  % Rolling moment due to sideslip (Clb) interpolation
+            obj.Clp = interpAlpha(22);                  % Rolling moment due to roll rate (Clp) interpolation
+            obj.Cnp = interpAlpha(24);                  % Yawing moment due to roll rate (Cnp) interpolation
+            obj.Clr = interpAlpha(26);                  % Rolling moment due to yaw rate (Clr) interpolation
+            obj.Cnr = interpAlpha(28);                  % Yawing moment due to yaw rate (Cnr) interpolation
+            obj.Cyp = interpAlpha(30);                  % Side force due to roll rate (Cyp) interpolation
+            
+            % Function handles for CL and CM (simplified linear models)
+            obj.CL = @CLvsAoA; % CL vs AoA, capped at CLmax
+            obj.CM = @(M,Re,alpha) obj.CMa(M,Re)*alpha + obj.CM0(M,Re); % CM vs AoA (linear)
+            % Unsteady Derivatives
+            obj.CLad = interpAlpha(12);                  
+            obj.CMad = interpAlpha(14);                  
             % dCM/dM interpolation
             obj.CMM = griddedInterpolant(aero_synt_M(:,1),...         
                 aero_synt_M(:,4),'linear','nearest' );
             % Control Derivatives
-            
+            % Elevator
             D1 = scatteredInterpolant(aero_synt_C(:,1),...         
                 aero_synt_C(:,2),aero_synt_C(:,3) );                % dCM/dDe at given alpha interpolation
             D2 = scatteredInterpolant(aero_synt_C(:,1),...         
@@ -181,761 +195,882 @@ classdef ACclass
             
             % Polar
             obj.polar =@(M,Re,CL) obj.CD0(M,Re) + obj.K(M,Re)*( CL(:) - obj.CLcdm(M,Re) ).^2;
-            catch ERR
-                warning('Could not load Aerodynamic Data')
-            end
-            % Controllers Gains
-            %obj.Kp(:,:,1) = Kp; obj.Kb(:,:,1) = Kb; obj.Ki(:,:,1) = Ki;
-            try
-                [obj.Kb,obj.Kp,obj.Ki] = obj.gain_assign(gain_file);
-            catch
-                warning('No gain file found')
-                obj.Kp(:,:,1) = nan(2,4); obj.Kb(:,:,1) = nan(2,4); obj.Ki(:,:,1) = nan(2,4);
-            end
-            
-            %% Auxiliary Interpolating Functions
-            
-            function CAA = interpAlpha(i)
-            %INTERPALçPHA: Function that returns a function handle that
-            %evaluates a latero-directional derivative.
-            %   INPUT
-            %   - i: index of the first position to interpolate ( first is
-            %       dCA/dAlpha)
-                slp = scatteredInterpolant(aero_synt(:,1),...           
-                aero_synt(:,2),aero_synt(:,i) );
-                zzr = scatteredInterpolant(aero_synt(:,1),...           
-                aero_synt(:,2),aero_synt(:,i+1) );
-
-                CAA =@(M,Re,alpha) slp(M,Re)*alpha + zzr(M,Re);
-
-            end
-
-            function CMde = interpCMde(M,Re,deltaE)
-            %interpCMde: interpolates the dCM/dDE and caps the elevator 
-            % deflection 
-                if deltaE < mCDe(M,Re)
-                    deltaE = mCDe(M,Re);
-                elseif deltaE > MCDe(M,Re)
-                    deltaE = MCDe(M,Re);
-                end
-                CMde = D1(M,Re)*deltaE;
-            end
-            
-            function CLde = interpCLde(M,Re,deltaE)
-            %interpCLde: interpolates the dCM/dDE and caps the elevator 
-            % deflection 
-                if deltaE < aero_synt_C(:,7)
-                    deltaE = aero_synt_C(:,7);
-                elseif deltaE > aero_synt_C(:,8)
-                    deltaE = aero_synt_C(:,8);
-                end
-                CLde = D2(M,Re)*deltaE;
-            end
-            
-            function CL = CLvsAoA(M,Re,alpha)
-            %CLVSAOA: function that evaluates only the linear trait of
-            % CL-alpha curve, capping the value at CLmax.
-                CL = nan(length(alpha),1);
-               for i = 1:length(alpha)
-                   CL(i) = obj.CLa(M,Re)*alpha(i) + obj.CL0(M,Re);
-                   CL_max = obj.CLmax(M,Re);
-                   if CL(i) > CL_max
-                       CL(i) = CL_max;
-                   end
-               end
-            end
-
+        catch ERR
+            warning('Could not load Aerodynamic Data')
         end
-        
-        function [obj,data_name,gain_name,inertia,propeller] = read_input(obj,dataFileName)
-            %READ_INPUT: Reads aircraft data from the txt file
-            %   Detailed explanation goes here
-            function test_block(f_id,test)
-                temp = fgetl(f_id);
-                if ~strcmp(temp,test)
-                    error( strcat('Expected',test,'fields') );
-                end
-            end
-            
-            [f_id,err_txt] = fopen(dataFileName,'r');                             % Read Input File
-            if f_id == -1
-                disp( strcat('Error Opening ',dataFileName,'. ',err_txt) );
-            else
-                try
-                disp('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
-                lin = fgetl(f_id); strtok(lin,{'%'}) % Skips firt line
-                lin = fgetl(f_id); lin = strtok(lin,sprintf(' \t%')); obj.Name = lin; % Name
-                lin = fgetl(f_id); lin = strtok(lin,sprintf(' \t%')); data_name  = lin;
-                lin = fgetl(f_id); lin = strtok(lin,sprintf(' \t%')); gain_name  = lin;
-                lin = fgetl(f_id); lin = strtok(lin,sprintf(' \t%')); inertia  = lin;
-                lin = fgetl(f_id); lin = strtok(lin,sprintf(' \t%')); propeller  = lin;
-                % Masses
-                test_block(f_id,'MASSES');
-                lin = fscanf(f_id,'%f '); obj.MTOM = lin; fgetl(f_id);
-                lin = fscanf(f_id,'%f '); obj.MTO = lin; fgetl(f_id);
-                lin = fscanf(f_id,'%f '); obj.MLND = lin; fgetl(f_id);
-                lin = fscanf(f_id,'%f '); obj.MZF = lin; fgetl(f_id);
-                % Wing
-                test_block(f_id,'GEOMETRY');
-
-                test_block(f_id,'WING');
-                lin = fscanf(f_id,'%f '); obj.Sw = lin; fgetl(f_id);
-                lin = fscanf(f_id,'%f '); obj.bw = lin; fgetl(f_id);
-                lin = fscanf(f_id,'%f '); obj.cref = lin; fgetl(f_id);
-                % Thrust
-                test_block(f_id,'ENGINE');
-                lin = fscanf(f_id,'%f '); obj.Neng = lin; fgetl(f_id);
-                lin = fscanf(f_id,'%f '); obj.RPM = lin; fgetl(f_id);
-                lin = fscanf(f_id,'%f '); obj.Dprop = lin; fgetl(f_id);
-                lin = fscanf(f_id,'%f '); obj.Pmax = lin*1000 ; fgetl(f_id);
-                obj.EnPs = nan(3,1);
-                lin = fscanf(f_id,'%f '); obj.EnPs(1) = lin; fgetl(f_id);
-                lin = fscanf(f_id,'%f '); obj.EnPs(2) = lin; fgetl(f_id);
-                lin = fscanf(f_id,'%f '); obj.EnPs(3) = lin; fgetl(f_id);
-                
-                fclose(f_id);
-                catch ERR
-                    warning(['Failed Reading File Fields',ERR.message])
-                   fclose(f_id);
-                end
-            end
+        % Controllers Gains
+        %obj.Kp(:,:,1) = Kp; obj.Kb(:,:,1) = Kb; obj.Ki(:,:,1) = Ki;
+        try
+            [obj.Kb,obj.Kp,obj.Ki] = obj.gain_assign(gain_file);
+        catch
+            warning('No gain file found')
+            obj.Kp(:,:,1) = nan(2,4); obj.Kb(:,:,1) = nan(2,4); obj.Ki(:,:,1) = nan(2,4);
         end
+%/* \label{cod:ACclass:const_4} (continua...)*/
+%/* (continua da \ref{cod:ACclass:const_4} )*/
+        %% --------------------------------------------------------- %%  
+        % AUXILIARY INTERPOLATING FUNCTIONS
         
-        function [Tout,P0,K0,Kv] = Thrust_Model(obj,h,V,deltaT,flg,Treq)
-        %THRUST_MODEL: Function that evaluates the thrust at a given flight 
-        % condition or checks if the required thrust is attainable at the 
-        % given flight condition. It uses two models and it works only for 
-        % turboprop.
+        function CAA = interpAlpha(i)
+        %INTERPALçPHA: Creates a function handle that evaluates a lateral-directional 
+        % or longitudinal derivative which varies linearly with AoA
+        % The coefficients (slope and intercept) are interpolated based on M and Re.
         %   INPUT
-        %   - h: altitude [m]
-        %   - V: airspeed [m/s]
-        %   - deltaT: admission rate [-] Must be between 0 and 1
-        %   - flg: flag defining the method used 'simple' 'complx'
-        %   - Treq: if passed, checks if it is attainable [N]
-        %-----------------------------------------------------------------%
-            [T, a, P, rho] = atmosisa(h);
-            q = 0.5*rho*V^2;
-            J = V/(obj.Dprop*obj.RPM)*60; % Advance Ratio
-            P0 = obj.Pmax*( 1+0.008*(V*3.6/100)^2 )*(rho/1.225)^obj.nEn; % Shaft Power [W]
-            if deltaT > 1
-                deltaT = 1;
-            elseif deltaT < 0
-                deltaT = 0;
+        %   - i: Index corresponding to the column of the slope coefficient 
+        %      (dCA/dAlpha) in the aero_synt database. The intercept is assumed
+        %      to be in column i+1
+        %   OUTPUT
+        %   -CAA: Function handle of the form @(M,Re,alpha) that returns the 
+        %        value of the derivative CA.
+        % ----------------------------------------------------------- %
+            slp = scatteredInterpolant(aero_synt(:,1),...           
+            aero_synt(:,2),aero_synt(:,i) );
+            zzr = scatteredInterpolant(aero_synt(:,1),...           
+            aero_synt(:,2),aero_synt(:,i+1) );
+
+            CAA =@(M,Re,alpha) slp(M,Re)*alpha + zzr(M,Re);
+
+        end
+
+        function CMde = interpCMde(M,Re,deltaE)
+        %INTERPCMDE: Interpolates the Pitching Moment due to Elevator deflection 
+        % (CM_deltaE) and caps the elevator deflection (deltaE). 
+        % INPUTS:
+        %   M: Mach number.
+        %   Re: Reynolds number.
+        %   deltaE: Elevator deflection [deg].
+        % OUTPUTS:
+        %   CMde: Value of CM_deltaE.
+        % ----------------------------------------------------------- %
+            if deltaE < mCDe(M,Re)
+                deltaE = mCDe(M,Re);
+            elseif deltaE > MCDe(M,Re)
+                deltaE = MCDe(M,Re);
+            end
+            CMde = D1(M,Re)*deltaE;
+        end
+        
+        function CLde = interpCLde(M,Re,deltaE)
+        %interpCLde: Interpolates the Lift Coefficient due to Elevator deflection 
+        % (CL_deltaE) and caps the elevator deflection (deltaE) based on 
+        % the bounds specified in the aero_synt_C database (columns 7 and 8). 
+        % INPUTS:
+        %   M: Mach number.
+        %   Re: Reynolds number.
+        %   deltaE: Elevator deflection [rad].
+        %
+        % OUTPUTS:
+        %   CLde: Value of CL_deltaE.
+        % ----------------------------------------------------------- %
+            if deltaE < aero_synt_C(:,7)
+                deltaE = aero_synt_C(:,7);
+            elseif deltaE > aero_synt_C(:,8)
+                deltaE = aero_synt_C(:,8);
+            end
+            CLde = D2(M,Re)*deltaE;
+        end
+        
+        function CL = CLvsAoA(M,Re,alpha)
+        %CLVSAOA: Evaluates the Lift Coefficient (CL) based on the linear
+        % model (CL = CLa*alpha + CL0), but caps the result at CLmax, 
+        % which is interpolated based on M and Re.
+        % INPUTS:
+        %   M: Mach number.
+        %   Re: Reynolds number.
+        %   alpha: Angle of Attack vector [rad].
+        %
+        % OUTPUTS:
+        %   CL: Vector of Lift Coefficient values, capped at CLmax.
+        % ----------------------------------------------------------- %
+            CL = nan(length(alpha),1);
+           for i = 1:length(alpha)
+               CL(i) = obj.CLa(M,Re)*alpha(i) + obj.CL0(M,Re);
+               CL_max = obj.CLmax(M,Re);
+               if CL(i) > CL_max
+                   CL(i) = CL_max;
+               end
+           end
+        end
+
+    end
+    
+    function [obj,data_name,gain_name,inertia,propeller] = read_input(obj,dataFileName)
+        %READ_INPUT: Reads aircraft configuration parameters and file paths
+        % from a structured plain text file specified by dataFileName.
+        % It returns the names of the external files needed
+        % for the subsequent loading steps (aerodynamic data, gains, 
+        % inertia, and propeller data).
+        % INPUTS:
+        %   obj: The ACclass object instance.
+        %   dataFileName: String containing the path/name of the configuration
+        %                 input file (typically a .txt file).
+        %
+        % OUTPUTS:
+        %   - obj: The updated ACclass object with properties populated from the file.
+        %   - data_name: File path/name for the aerodynamic database.
+        %   - gain_name: File path/name for the controller gains.
+        %   - inertia: File path/name for the inertia tensor data.
+        %   - propeller: File path/name for the propeller data.
+        % ----------------------------------------------------------- %
+        function test_block(f_id,test)
+            temp = fgetl(f_id);
+            if ~strcmp(temp,test)
+                error( strcat('Expected',test,'fields') );
+            end
+        end
+        
+        [f_id,err_txt] = fopen(dataFileName,'r');                             % Read Input File
+        if f_id == -1
+            disp( strcat('Error Opening ',dataFileName,'. ',err_txt) );
+        else
+            try
+            disp('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
+            lin = fgetl(f_id); strtok(lin,{'%'}) % Skips firt line
+            lin = fgetl(f_id); lin = strtok(lin,sprintf(' \t%')); obj.Name = lin; % Name
+            lin = fgetl(f_id); lin = strtok(lin,sprintf(' \t%')); data_name  = lin;
+            lin = fgetl(f_id); lin = strtok(lin,sprintf(' \t%')); gain_name  = lin;
+            lin = fgetl(f_id); lin = strtok(lin,sprintf(' \t%')); inertia  = lin;
+            lin = fgetl(f_id); lin = strtok(lin,sprintf(' \t%')); propeller  = lin;
+            % Masses
+            test_block(f_id,'MASSES');
+            lin = fscanf(f_id,'%f '); obj.MTOM = lin; fgetl(f_id);
+            lin = fscanf(f_id,'%f '); obj.MTO = lin; fgetl(f_id);
+            lin = fscanf(f_id,'%f '); obj.MLND = lin; fgetl(f_id);
+            lin = fscanf(f_id,'%f '); obj.MZF = lin; fgetl(f_id);
+            % Wing
+            test_block(f_id,'GEOMETRY');
+
+            test_block(f_id,'WING');
+            lin = fscanf(f_id,'%f '); obj.Sw = lin; fgetl(f_id);
+            lin = fscanf(f_id,'%f '); obj.bw = lin; fgetl(f_id);
+            lin = fscanf(f_id,'%f '); obj.cref = lin; fgetl(f_id);
+            % Thrust
+            test_block(f_id,'ENGINE');
+            lin = fscanf(f_id,'%f '); obj.Neng = lin; fgetl(f_id);
+            lin = fscanf(f_id,'%f '); obj.RPM = lin; fgetl(f_id);
+            lin = fscanf(f_id,'%f '); obj.Dprop = lin; fgetl(f_id);
+            lin = fscanf(f_id,'%f '); obj.Pmax = lin*1000 ; fgetl(f_id);
+            obj.EnPs = nan(3,1);
+            lin = fscanf(f_id,'%f '); obj.EnPs(1) = lin; fgetl(f_id);
+            lin = fscanf(f_id,'%f '); obj.EnPs(2) = lin; fgetl(f_id);
+            lin = fscanf(f_id,'%f '); obj.EnPs(3) = lin; fgetl(f_id);
+            
+            fclose(f_id);
+            catch ERR
+                warning(['Failed Reading File Fields',ERR.message])
+               fclose(f_id);
+            end
+        end
+    end
+    
+    function [Tout,P0,K0,Kv] = Thrust_Model(obj,h,V,deltaT,flg,Treq)
+    %THRUST_MODEL: % DESCRIPTION: Evaluates the maximum attainable thrust (Tout) from the 
+    % aircraft's turboprop engine(s) at a given flight condition (h, V, deltaT).
+    % It uses two empirical models ('simple' or 'complx') derived from the 
+    % propeller efficiency envelope. It also checks if a required thrust (Treq) 
+    % is attainable. 
+    % This function works only for turboprop engines.
+    %   INPUT
+    %   - h: altitude [m]
+    %   - V: airspeed [m/s]
+    %   - deltaT: admission rate [-] Must be between 0 and 1
+    %   - flg: flag defining the method used 'simple' 'complx'
+    %   - Treq (Optional): Required thrust value. If provided, Tout is capped at Treq [N].
+    % OUTPUTS:
+    %   - Tout: Attainable thrust (or required thrust if Treq < Tout) [N].
+    %   - P0: Maximum Shaft Power corrected for speed and density (ambient) [W].
+    %   - K0: Coefficient K0 used in the 'simple' model.
+    %   - Kv: Coefficient Kv used in the 'simple' model.
+    %-----------------------------------------------------------------%
+    % Calculates atmospheric properties at the given altitude h.
+        [~, ~, ~, rho] = atmosisa(h);                                   % Dynamic pressure [Pa]
+        q = 0.5*rho*V^2;
+        J = V/(obj.Dprop*obj.RPM)*60;                                   % Advance Ratio
+        % Calculates maximum available Shaft Power (P0) at given altitude
+        % and airspeed
+        P0 = obj.Pmax*( 1+0.008*(V*3.6/100)^2 )*(rho/1.225)^obj.nEn; %/*$\leftarrow P \eqref{eq:Pmaxhv}$ */
+        % Caps the throttle setting deltaT between 0 and 1.
+        if deltaT > 1
+            deltaT = 1;
+        elseif deltaT < 0
+            deltaT = 0;
+        end
+        switch flg
+            case 'simple'
+                % Simple thrust model based on CT = (K0 + Kv/V^3)*deltaT
+                % This model is valid only within the J bounds of the linear regression.
+                if J < obj.aTS.bds(1) || J > obj.aTS.bds(2) % Checks if J is within limits of the model
+                    warning('J outside bounds, use complx model')
+                end
+                K0 = obj.aTS.cfs(1)/(0.5*rho*obj.Sw)*...
+                    obj.Pmax*(rho/1.225)^obj.nEn;   %/* $\leftarrow K_0 \eqref{eq:CT_final}$*/
+                Kv = obj.aTS.cfs(2)/(0.5*rho*obj.Sw)*...
+                    obj.Pmax*(rho/1.225)^obj.nEn;   %/* $\leftarrow K_v \eqref{eq:CT_final}$*/
+                Tout = obj.Neng*q*obj.Sw*( K0+Kv/(V^3) )*deltaT;
+            case 'complx'
+                % Complex thrust model: T = Neng * P0 * deltaT / V * Eta(V)
+                % where Eta(V) is the propeller efficiency modeled by a high-order polynomial (obj.aTC.cfs).
+                K0 = nan; Kv = nan;
+                if ~(J > 0)
+                   warning('J is negative, results will be incorrect')
+                else
+                    Tout = obj.Neng*P0*deltaT/...
+                        V*polyval(obj.aTC.cfs,V); %/* $\leftarrow T \eqref{eq:TwCT}$*/
+                end
+        end
+        % Checks if the optional Treq input argument was provided.
+        if nargin == 6
+            if Treq < Tout
+                % If the calculated maximum attainable thrust (Tout) is greater than
+                % the required thrust (Treq), cap the output thrust to Treq.
+                Tout = Treq;
+            end
+        end
+    end
+    
+    function T = Thrust_Law(obj,Treq,h,flg)
+    %THRUST_LAW Function that models the thrust produced by the engine
+    %   T = Thrust_Law(Treq,h): checks if the required thrust passed with Treq
+    %       is actually available at the given altitude h. If that is the case,
+    %       the function returns T, otherwise it returns the maximum available
+    %       thrust at the given altitude
+    %   T = Thrust_Law(Treq,h,flag): if flag is passed, Treq is the admission
+    %       rate of the engine at the given altitude and teh funcion returns the
+    %       thrust developed by the engine(s) for the given combination of
+    %       admisison rate and altitude. 
+    %           (i) ipt: the admission rate is taken from the one in input
+    %          (ii) idl: engine is set to idle
+    %         (iii) mxT: engine is set to max TO
+    %          (iv) mxC: engine is set to max continous
+    
+    % TODO - FARE MODELLO MOTORE per ora i numeri sono temporanei
+        Tmax = 12000; % N
+        if nargin == 3
+            T = Treq;
+            if Treq > Tmax 
+                T = Tmax;
+            elseif Treq < Tmax*0.5
+                T = Tmax*0.5; % Limits to idle
+            end
+        else
+            if Treq > 1 || Treq < 1
+                error('Admission rate must be between [0,1]')
             end
             switch flg
-                case 'simple'
-                    % Simple model based on CT = (K0 + Kv/V^3)*dT
-                    if J < obj.aTS.bds(1) || J > obj.aTS.bds(2) % Checks if J is within limits of the model
-                        %Tout = nan;
-                        warning('J outside bounds, use complx model')
-                   end     
-                    %else
-                        K0 = obj.aTS.cfs(1)/(0.5*rho*obj.Sw)*...
-                            obj.Pmax*(rho/1.225)^obj.nEn;
-                        Kv = obj.aTS.cfs(2)/(0.5*rho*obj.Sw)*...
-                            obj.Pmax*(rho/1.225)^obj.nEn;
-                        Tout = obj.Neng*q*obj.Sw*( K0+Kv/(V^3) )*deltaT;
-                    
-                case 'complx'
-                    K0 = nan; Kv = nan;
-                    if ~(J > 0)
-                        %TODO FINIREEEEEEEEEEEEEEEEEEEE
-                    else
-                        %P0 = ( 1+0.008*(V*3.6/100)^2 )*(rho/1.225)^obj.nEn;
-                        Tout = obj.Neng*P0*deltaT/V*polyval(obj.aTC.cfs,V);
-                    end
-                    
-                    
+                case 'ipt' % Admission rate is given as input
+                    T = Tmax*Treq;
+                case 'idl'
+                    T = 0.5*Tmax; % IDLE FINIREEEE
+                case 'mxT'
+                    % VEDERE in che modo implementare il motore, potranno essere
+                    % anche sostituiti da Tmax(h)
+                case 'mxC'
+        
             end
-            if nargin == 6
-               if Treq < Tout
-                    Tout = Treq;
-               end
-            end
-            
         end
+    end
+
+    function [CL,CD] = Aerodynamic_Mod(obj,flag,h,M,inp)
+    %AERODYNAMIC_MOD Function that models the aerodynamic characteristics of
+    %the aircraft
+    %   L = Aerodynamic_Mod("t",h,inp): checks if the required CL 
+    %       passed with inp is actually available at the given altitude h.
+    %       If that is the case, the function returns T, otherwise it returns 
+    %       the maximum available lift at the given altitude
+    %       
+    %       
+    %   [L,D] = Aerodynamic_Mod("alpha",h,inp): calculates all teh aerodynamic
+    %           data for a given combination of alpha and altitude
+    
+    % TODO - FARE MODELLO AERODINAMICO per ora i numeri sono temporanei
+    
+        Re = obj.ReCalc(h,M);       % Flight Reynolds Number
         
-        function T = Thrust_Law(obj,Treq,h,flg)
-        %THRUST_LAW Function that models the thrust produced by the engine
-        %   T = Thrust_Law(Treq,h): checks if the required thrust passed with Treq
-        %       is actually available at the given altitude h. If that is the case,
-        %       the function returns T, otherwise it returns the maximum available
-        %       thrust at the given altitude
-        %   T = Thrust_Law(Treq,h,flag): if flag is passed, Treq is the admission
-        %       rate of the engine at the given altitude and teh funcion returns the
-        %       thrust developed by the engine(s) for the given combination of
-        %       admisison rate and altitude. 
-        %           (i) ipt: the admission rate is taken from the one in input
-        %          (ii) idl: engine is set to idle
-        %         (iii) mxT: engine is set to max TO
-        %          (iv) mxC: engine is set to max continous
-        
-        % TODO - FARE MODELLO MOTORE per ora i numeri sono temporanei
-            Tmax = 12000; % N
-            if nargin == 3
-                T = Treq;
-                if Treq > Tmax 
-                    T = Tmax;
-                elseif Treq < Tmax*0.5
-                    T = Tmax*0.5; % Limits to idle
+        %CLmax = 1.8; % TEMPORANEOOO
+        % [M,Re,CD0,K,CL@min(Cd),CLa,CL0,CLmax,AoA@CLmax]
+        switch flag
+            case "t"
+                CLm = obj.CLmax(M,Re);                                      
+                CL = inp(:);
+                if any( abs(inp) > CLm ) % TEMP: ASSUMIAMO PER ORA CHE CLmax positivo e negativo siano uguali
+                   CL( abs(inp) > CLm) = CLm.*CL( abs(inp) > CLm)...
+                       ./abs( CL(abs(inp) > CLm) ) ;
                 end
+                
+                CD = obj.polar(M,Re,CL);
+        end
+    end
+    
+    function RE = ReCalc(obj,h,M)
+        %RECALC: calculates Reynolds Numer at a given Mach and altitude.
+        [T, a, ~, rho] = atmosisa(h);
+        mu = 1.458e-6 * T^(3/2)/(T+110.4); % Sutherland Law used for retrocompatibility with older matlab versions
+        V = M*a; RE = V*obj.cref*rho/mu;
+    end
+    
+    function [Alon2,Blon,MTlong,Alatdir,Blatdir,x0] = LinSysComp(obj,x0b,u0,CMov)
+    %LINSYSCOMP: Builds the state-space matrices for the 
+    % complete linearised 6DoF aircraft model, decomposed into Longitudinal 
+    % and Lateral-Directional systems. All equations and matrices are defined 
+    % in the Stability Axes.
+    % INPUTS:
+    %   - x0b: Trim state vector in Body Axes [u,v,w,p,q,r,x,y,z,psi,teta,phi,m].
+    %   - u0: Trim control vector [deltaT, deltaE, deltaA, deltaR].
+    %   - CMov (Optional): Override vector for key aerodynamic derivatives.
+    %           [ dCLda, dCMda, dCMdad, dCLdad, dCLdq, dCMdq ].
+    % OUTPUTS:
+    %   - Alon2: Complete  Longitudinal State Matrix.
+    %   - Blon: Longitudinal Control Matrix.
+    %   - MTlong: Diagonal Matrix used for non-dimensionalizing mode shapes.
+    %   - Alatdir: Lateral-Directional State Matrix.
+    %   - Blatdir: Lateral-Directional Control Matrix.
+    %   - x0: Trim state vector in Stability Axes.
+    % ------------------------------------------------------------------- %
+        g = 9.81;
+
+        x0 = zeros(13,1);                   % State vector in Stability Axes
+
+        alpha0r = atan(x0b(3)/x0b(1));      % Stability Axes AoA [rad]
+        alpha0 = alpha0r*180/pi;            % Stability Axes AoA [deg]
+        x0(11) = x0b(11) - alpha0r;         % XXX Angle [rad]
+        x0([7:9,13]) = x0b([7:9,13]);       % Height
+        % Linear and Angular Velocities converted from Body to Stability Axes.
+        x0(1:3) = obj.Wind2Body(x0b(1:3),'B2W',alpha0r,0);
+        x0(4:6) = obj.Wind2Body(x0b(4:6),'B2W',alpha0r,0);
+
+        [~, a, ~, rho] = atmosisa(-x0(9) );
+        M = x0(1)/a;                         % Mach Number
+        Re = obj.ReCalc(-x0(9),M);           % Reynolds Number
+        q0 = 0.5*rho*x0(1)^2;                % Dynamic Pressure [Pa]
+
+        K1 = q0*obj.Sw/x0(13); mu0 = 2*x0(13)/(rho*obj.Sw*obj.cref);
+
+        % Calculate Aerodynamic and Thrust Coefficients at Trim
+        CLc =  obj.CL(M,Re,alpha0) + obj.CLde(M,Re,u0(2));
+        CD = obj.polar( M,Re,...
+            obj.CL(M,Re,alpha0)+ obj.CLde(M,Re,u0(2)) );
+        % Tcos(a0) = D + m*g*sin(gamma0)
+        CT = ( CD + x0(13)*g*sin( x0(11) )/(q0*obj.Sw) )/cos(alpha0r); 
+        if abs( -CLc + x0(13)*g*cos( x0(11) )/(q0*obj.Sw) ...
+                - CT*sin(alpha0r) ) > 1e-3
+            error('Aircraft not Trimmed')
+        end
+
+        [~,MB2S] = obj.Wind2Body([1;0;0],'B2W',alpha0r,0);      % Body to Stability Matrix
+        % Inertia Tensor Transformation (Body to Stability Axes)
+        It = MB2S*obj.I*MB2S';                                  % Inertia Tensor in Stability Axes
+        % Vertical distance from CG to engine
+        zT = obj.EnPs(3) - obj.CG(3);
+        % Thrust Model calculation (uses simple model to derive coefficients)
+        [Tout,~,K0,Kv] = obj.Thrust_Model(-x0(9),x0(1),1,'simple');
+        deltaT0 = CT*q0*obj.Sw/Tout;                            % Trim throttle setting
+
+        %% Derivatives
+
+        dCTdM = -3*CT*(1-K0*deltaT0/CT);                        % CTu*M0
+        dCDdM = 0;                                              % CDu
+        dCLdM = M/(1-M^2);                                      % Prandtl Glauert
+        dCMdM = obj.CMM(alpha0);                                % PROBLEMA???
+
+        dCLda = obj.CLa(M,Re)*180/pi;                           % Lift Curve slope [1/rad]
+        dCDda = 2*obj.K(M,Re)*( CLc - obj.CLcdm(M,Re) )*dCLda;  % Parabolic polar slope
+        dCMda = obj.CMa(M,Re)*180/pi;                           % CM slope [1/rad]
+        dCMdad = obj.CMad(M,Re,alpha0);
+        dCLdad = obj.CLad(M,Re,alpha0);
+
+        dCLdDe = obj.CLde(M,Re,1);                              % AGGIUNGERE EQUILIBRIO
+        dCMdDe = obj.CMde(M,Re,1);
+
+        dCLdq = obj.CLq(M,Re);                                  % PROBLEMA
+        dCMdq = obj.CMq(M,Re);
+
+        % Auxiliary function to override calculated derivatives with manual inputs.
+        function Sost = substVal(dCMi,i)
+            if isnan(CMov(i))
+                Sost = dCMi;
             else
-                if Treq > 1 || Treq < 1
-                    error('Admission rate must be between [0,1]')
-                end
-                switch flg
-                    case 'ipt' % Admission rate is given as input
-                        T = Tmax*Treq;
-                    case 'idl'
-                        T = 0.5*Tmax; % IDLE FINIREEEE
-                    case 'mxT'
-                        % VEDERE in che modo implementare il motore, potranno essere
-                        % anche sostituiti da Tmax(h)
-                    case 'mxC'
-            
-                end
+                Sost = CMov(i);
             end
         end
-
-        function [CL,CD] = Aerodynamic_Mod(obj,flag,h,M,inp)
-        %AERODYNAMIC_MOD Function that models the aerodynamic characteristics of
-        %the aircraft
-        %   L = Aerodynamic_Mod("t",h,inp): checks if the required CL 
-        %       passed with inp is actually available at the given altitude h.
-        %       If that is the case, the function returns T, otherwise it returns 
-        %       the maximum available lift at the given altitude
-        %       
-        %       
-        %   [L,D] = Aerodynamic_Mod("alpha",h,inp): calculates all teh aerodynamic
-        %           data for a given combination of alpha and altitude
-        
-        % TODO - FARE MODELLO AERODINAMICO per ora i numeri sono temporanei
-        
-            Re = obj.ReCalc(h,M);       % Flight Reynolds Number
-            
-            %CLmax = 1.8; % TEMPORANEOOO
-            % [M,Re,CD0,K,CL@min(Cd),CLa,CL0,CLmax,AoA@CLmax]
-            switch flag
-                case "t"
-                    CLm = obj.CLmax(M,Re);                                      
-                    CL = inp(:);
-                    if any( abs(inp) > CLm ) % TEMP: ASSUMIAMO PER ORA CHE CLmax positivo e negativo siano uguali
-                       CL( abs(inp) > CLm) = CLm.*CL( abs(inp) > CLm)...
-                           ./abs( CL(abs(inp) > CLm) ) ;
-                    end
-                    
-                    CD = obj.polar(M,Re,CL);
-            end
-        end
-        
-        function RE = ReCalc(obj,h,M)
-            %RECALC: calculates Reynolds Numer at a given Mach and altitude.
-            [T, a, ~, rho] = atmosisa(h);
-            mu = 1.458e-6 * T^(3/2)/(T+110.4); % Sutherland Law used for retrocompatibility with older matlab versions
-            V = M*a; RE = V*obj.cref*rho/mu;
-        end
-        
-        function [Alon2,Blon,MTlong,Alatdir,Blatdir,x0] = LinSysComp(obj,x0b,u0,CMov)
-        %LINSYSCOMP: Function that builds the matrices for the complete
-        % linearised aircraft model. Equations are in stability axes
-        %    INPUT
-        %    - x0b: [u,v,w,p,q,r,x,y,z,psi,teta,phi,m] in body axes in an
-        %        equilibrium condition
-        %    - CMov: if specified, it overrides some aerodynamic data. 
-        %           [ dCLda,dCMda,dCMdad,dCLdad,dCLdq,dCMdq ]
-        %    OUTPUT
-        %    - x0: [u,v,w,p,q,r,x,y,z,psi,teta,phi,m] in stability axes in
-        %       the reference trimemd condition
-        %   - Alon2: Complete longitudinal state matrix 
-        %   -
-        %   - MTlong: Matrix used to make the modes nondymensional
-
-            g = 9.81;
-
-            x0 = zeros(13,1);                   % State vector in Stability Axes
-
-            alpha0r = atan(x0b(3)/x0b(1));      % Stability Axes AoA [rad]
-            alpha0 = alpha0r*180/pi;            % Stability Axes AoA [deg]
-            x0(11) = x0b(11) - alpha0r;         % XXX Angle [rad]
-            x0([7:9,13]) = x0b([7:9,13]);       % Height
-
-            x0(1:3) = obj.Wind2Body(x0b(1:3),'B2W',alpha0r,0);
-            x0(4:6) = obj.Wind2Body(x0b(4:6),'B2W',alpha0r,0);
-
-            [T, a, P, rho] = atmosisa(-x0(9) );
-            M = x0(1)/a;                         % Mach Number
-            Re = obj.ReCalc(-x0(9),M);           % Reynolds Number
-            q0 = 0.5*rho*x0(1)^2;                % Dynamic Pressure
-
-            K1 = q0*obj.Sw/x0(13); mu0 = 2*x0(13)/(rho*obj.Sw*obj.cref);
-
-            % Equilibrium in Stability Axes
-            CLc =  obj.CL(M,Re,alpha0) + obj.CLde(M,Re,u0(2));
-            CD = obj.polar( M,Re,...
-                obj.CL(M,Re,alpha0)+ obj.CLde(M,Re,u0(2)) );
-            CT = ( CD + x0(13)*g*sin( x0(11) )/(q0*obj.Sw) )/cos(alpha0r); % Tcos(a0) = D + m*g*sin(gamma0)
-            if abs( -CLc + x0(13)*g*cos( x0(11) )/(q0*obj.Sw) ...
-                    - CT*sin(alpha0r) ) > 1e-3
-                error('Aircraft not Trimmed')
-            end
-
-            [~,MB2S] = obj.Wind2Body([1;0;0],'B2W',alpha0r,0);             % Body to Stability Matrix
-
-            It = MB2S*obj.I*MB2S';                                  % Inertia Tensor in Stability Axes
-
-            zT = obj.EnPs(3) - obj.CG(3);
-            [Tout,~,K0,Kv] = obj.Thrust_Model(-x0(9),x0(1),1,'simple');
-            deltaT0 = CT*q0*obj.Sw/Tout;
-
-            %% Derivatives
-
-            dCTdM = -3*CT*(1-K0*deltaT0/CT);                        % CTu*M0 -- CONTROLLA CHE SIA CONSIDEATO GIA M0
-            dCDdM = 0;                                              % CDu
-            dCLdM = M/(1-M^2);                                      % Prandtl Glauert
-            dCMdM = obj.CMM(alpha0);                                % PROBLEMA???
-
-            dCLda = obj.CLa(M,Re)*180/pi;                           % Lift Curve slope [1/rad]
+        % --- Manual Override Check ---
+        if nargin > 3
+            disp('Overriding Calculated Data with Manual Input')
+            % CMov indices: [1: dCLda, 2: dCMda, 3: dCMdad, 4: dCLdad, 5: dCLdq, 6: dCMdq]
+            dCLda = substVal(dCLda,1);
             dCDda = 2*obj.K(M,Re)*( CLc - obj.CLcdm(M,Re) )*dCLda;  % Parabolic polar slope
-            dCMda = obj.CMa(M,Re)*180/pi;                           % CM slope [1/rad]
-            dCMdad = obj.CMad(M,Re,alpha0);
-            dCLdad = obj.CLad(M,Re,alpha0);
-
-            dCLdDe = obj.CLde(M,Re,1);                              % AGGIUNGERE EQUILIBRIO
-            dCMdDe = obj.CMde(M,Re,1);
-
-            dCLdq = obj.CLq(M,Re);                                  % PROBLEMA
-            dCMdq = obj.CMq(M,Re);
-            
-            function Sost = substVal(dCMi,i)
-                if isnan(CMov(i))
-                    Sost = dCMi;
-                else
-                    Sost = CMov(i);
-                end
-            end
-            if nargin > 3
-                disp('Overriding Calculated Data with Manual Input')
-                % dCLda,dCMda,dCMdad,dCLdad,dCLdq,dCMdq
-                dCLda = substVal(dCLda,1);
-                dCDda = 2*obj.K(M,Re)*( CLc - obj.CLcdm(M,Re) )*dCLda;  % Parabolic polar slope
-                dCMda = substVal(dCMda,2);
-                % Unsteady
-                dCMdad = substVal(dCMdad,3);
-                dCLdad = substVal(dCLdad,4);
-                % Dynamic
-                dCLdq = substVal(dCLdq,5);                                
-                dCMdq = substVal(dCMdq,6);  
-            end
-
-            % u derivatives
-            Xu = K1/x0(1)*( 2*x0(13)*g/(q0*obj.Sw)*sin(x0(11)) + ...
-                dCTdM*cos(alpha0r)- M*dCDdM );
-            Zu = -K1/x0(1)*( 2*( CLc+CT*sin(alpha0r) ) + ...
-                M*dCLdM + dCTdM*sin(alpha0r) );
-            Mu = q0*obj.Sw*obj.cref/(It(2,2)*x0(1))*...
-                ( dCMdM+zT/obj.cref*dCTdM );
-
-            % w derivatives
-            Xw = K1/x0(1) * (CLc-dCDda);
-            Zw = -K1/x0(1)*( CD+dCLda );
-            Mw = q0*obj.Sw*obj.cref/(It(2,2)*x0(1))*dCMda;
-
-            % Unstedy Derivatives
-            Zwd = -0.5*dCLdad/mu0;
-            Mwd = 0.25*rho*obj.Sw*obj.cref^2/It(2,2)*dCMdad;
-
-            % Dynamic Derivatives
-            Mq = 0.25*rho*x0(1)*obj.Sw*obj.cref^2/It(2,2)*dCMdq;
-            Zq = -x0(1)*0.5/mu0*dCLdq;
-
-            K2 = Mwd/(1-Zwd);
-
-            % Control Derivatives
-            Xde = 0;                                                % AGGIUNGERE VARIAZIONE dCD
-            Zde = K1*dCLdDe;
-            Mde = q0*obj.Sw*obj.cref/It(2,2)*dCMdDe;
-
-            Xdt = K1*( K0 + Kv/( x0(1) )^3 );                       % Constant Power
-            Zdt = 0;                                                % Thrust alignex with speed
-            Mdt = obj.EnPs(3)/obj.cref*CT;
-            
-            MTlong = diag([1/x0(1),1/x0(1),obj.cref*0.5/x0(1),1,1,1]);%Matrix used to scale the mode shapes
-
-            %% Longitudinal State Matrix
-
-            Alon = [ Xu        , Xw         , 0                , -g*cos(x0(11)); ...
-                Zu        , Zw         , Zq+x0(1)         , -g*sin(x0(11));...
-                Mu + K2*Zu, Mw + K2*Zw , Mq + K2*(Zq+x0(1)), -K2*g*sin(x0(11))
-                0,0,1,0];                                       % Reduced Longitudinal State Matrix
-
-            Alon2 = [Alon(1:3,1:3),zeros(3,2),Alon(1:3,4);...
-                zeros(2,6);Alon(4,1:3),zeros(1,2),Alon(4,1) ];       % Complete Longitudinal State Matrix
-
-            Alon2(1,2) = Alon2(1,2) - x0(5);
-
-            Alon2(2,1) = Alon2(2,1) - x0(5); Alon2(2,:) = Alon2(2,:)/(1-Zwd);
-            Alon2(3,1) = Alon2(3,1) + x0(5)/(1-Zwd);
-            Alon2(4:5,1:2) = [ cos(x0(11)),sin(x0(11));-sin(x0(11)),cos(x0(11))];
-            Alon2(4:5,6) = [-sin(x0(11))*x0(1);-cos(x0(11))*x0(1)];
-
-            Alon(2,:) = Alon(2,:)/(1-Zwd);
-
-
-            Blon = [Xdt,Xde; Zdt,Zde; Mdt+K2*Zdt,Mde+K2*Zde;0,0];
-            Blon(2,:) = Blon(2,:)/(1-Zwd);
-
-            %% LATERO-DIRECTIONAL
-
-            Ipxx = ( It(1,1)*It(3,3) - It(1,3)^2 )/It(3,3);
-            Ipzz = ( It(1,1)*It(3,3) - It(1,3)^2 )/It(1,1);
-            Ipxz = ( It(1,3)^2 - It(1,1)*It(3,3) )/It(1,3); % Opposite sign wrt 16.242
-
-
-            Yv = obj.Cyb(M,Re)/x0(1)*q0*obj.Sw; % dYdB * 1/U0
-            Yp = obj.Cyp(M,Re,alpha0)*q0*obj.Sw*0.5*obj.bw/x0(1);
-            Yr = 0;
-
-            Rollv = q0*obj.Sw*obj.bw*obj.Clb(M,Re,alpha0)/x0(1);
-            Rollp = q0*obj.Sw*obj.bw*obj.Clp(M,Re,alpha0)*obj.bw*0.5/x0(1);
-            Rollr = q0*obj.Sw*obj.bw*obj.Clr(M,Re,alpha0)*obj.bw*0.5/x0(1);
-
-            Yawv = q0*obj.Sw*obj.bw*obj.Cnb(M,Re)/x0(1);
-            Yawp = q0*obj.Sw*obj.Cnp(M,Re,alpha0)*obj.bw*0.5/x0(1);
-            Yawr = q0*obj.Sw*obj.Cnr(M,Re,alpha0)*obj.bw*0.5/x0(1);
-
-            Yda = 0;
-            Ydr = 0;
-            Rollda = 0;
-            Rolldr = 0;
-            Yawda = 0;
-            Yawdr = 0;
-
-            Alatdir = [Yv/x0(13)             , Yp/x0(13) , Yr/x0(13) - x0(1)       , 0 , g*cos(x0(11)) , 0 ;...
-                Rollv/Ipxx + Yawv/Ipxz , 0         , 0                       , 0 , 0             , 0;...
-                Rollv/Ipxz + Yawv/Ipzz , 0         , 0                       , 0 , 0             , 0;
-                1                    , 0         , 0                       , 0 ,0         , cos(x0(11))*x0(1);...
-                0                    , 1         , sin(x0(11))/cos(x0(11)) , 0 , x0(5)*sin(x0(11))/cos(x0(11)),0;...
-                0                    , 0         , 1/cos(x0(11))           , 0 , x0(5)/cos(x0(11)) ,0 ];
-            Alatdir(2,2) = ( Rollp-It(1,3)*x0(5) )/Ipxx + ...
-                ( Yawp + ( It(2,2)-It(3,3) ) *x0(5) )/Ipxz;     % It(1,3) with changed sign
-            Alatdir(2,3) = ( Yawr + It(1,3)*x0(5) )/Ipxz + ...
-                ( Rollr + ( It(2,2)-It(3,3) )*x0(5) )/Ipxx;
-            Alatdir(3,2) = ( Rollp+It(1,3)*x0(5) )/Ipxz + ...
-                ( Yawp + ( It(1,1)-It(2,2) )*x0(5) )/Ipzz;
-            Alatdir(3,3) = ( Yawr + It(1,3)*x0(5) )/Ipzz + ...
-                ( Rollr + ( It(2,2)-It(3,3) )*x0(5) )/Ipxz;
-
-            Blatdir = [Yda,Ydr;Rollda/Ipxx+Yawda/Ipxz,Rolldr/Ipxx+Yawdr/Ipxz;...
-                Rollda/Ipxz+Yawda/Ipzz,Rolldr/Ipxz+Yawdr/Ipzz;zeros(3,2)
-                ];
-
-            Blatdir(1,:) = Blatdir(1,:)/x0(13);
+            dCMda = substVal(dCMda,2);
+            % Unsteady
+            dCMdad = substVal(dCMdad,3);
+            dCLdad = substVal(dCLdad,4);
+            % Dynamic
+            dCLdq = substVal(dCLdq,5);                                
+            dCMdq = substVal(dCMdq,6);  
         end
 
-        function [A,B,C,u0] = LongLinSys(obj,x0,m)
-        %LONGLINSYS: Builds the linearized reduced dynamic model 
-        %around x0. The reduced model is the one based on the NAPE
-        %equations.
-        %   INPUT
-        %   x0 - Vettore delle varibili di stato longitudinali nella cond. di rif.
-        %       [Va,ga,h]
-        %   m - Aircraft mass around condition
-        %   OUTPUT
-        %   A
-        %   C - Output matrix, returns [VIAS;M;h;hdot] in imperial
-        %       units: VIAS in kts, h in ft, hdot fpm
-            
-            g = 9.81; gm = 1.4;
-            [T, a, p, rho] = atmosisa([0,x0(3)]);
-            
-            M = x0(1)/a(2); Re = obj.ReCalc(x0(3),M);
-            CL = m*g*2/(rho(2)*obj.Sw*x0(1)^2); % Trim CL
-            
-            u0 = zeros(2,1); u0(1) = CL; 
-            u0(2) = rho(2)*0.5*obj.Sw*...
-                x0(1)^2*obj.polar(M,Re,CL);
-            %u0 = u0*rho(2)*0.5*AC.Sw*x0(1)^2;
-            
-            A = zeros(3);
-            A(1,1) = -rho(2)*x0(1)*obj.Sw*( obj.polar(M,Re,CL) )/m; % dfVa/dVa
-            A(1,2) = -g*cos(x0(2)); % dfVa/dga
-            A(2,1) = rho(2)*obj.Sw*CL/(2*m) + g/(x0(1)^2)*cos(x0(2)); % dfga/dVa
-            A(2,2) = g/x0(1) * sin(x0(2)); % dfga/dga
-            A(3,1) = sin(x0(2));% dfh/dVa
-            A(3,2) = x0(1)*cos(x0(2));% dfh/dga
-            
-            B = zeros(3,2);
-            B(1,1) = -rho(2)*x0(1)^2*obj.Sw*obj.K(M,Re)*(CL - obj.CLcdm(M,Re))/m; % dfVa/dCL
-            B(1,2) = 1/m; % dfVa/dT
-            B(2,1) = rho(2)*x0(1)*obj.Sw/(2*m); % dfGa/dCL
-            
-            C = zeros(4,3);
-            M = x0(1)/a(2); MMS = (1+0.5*(gm-1)*M^2)^(1/(gm-1));
-            C(1,1) = a(1)/a(2) * p(2)/p(1) * M*MMS*( p(2)/p(1)*( MMS^gm - 1 ) + 1 )^(-1/gm);
-            C(1,1) = C(1,1)/ sqrt( 2/(gm-1)*( ( p(2)/p(1)*( MMS^gm - 1 ) + 1 )^(1-1/gm) -1 ) ); % dgVIAS/dVa
-            C(1,1) = C(1,1)/0.51444; % VIAS in kts
-            C(2,1) = 1/a(2); % dgM/dVa
-            C(3,3) = 1/0.305;  % dgh/dh in feet
-            C(4,2) = A(3,2)*60/0.305; % dghdot/dga fpm
-            
-        end
+        % u derivatives
+        Xu = K1/x0(1)*( 2*x0(13)*g/(q0*obj.Sw)*sin(x0(11)) + ...
+            dCTdM*cos(alpha0r)- M*dCDdM );
+        Zu = -K1/x0(1)*( 2*( CLc+CT*sin(alpha0r) ) + ...
+            M*dCLdM + dCTdM*sin(alpha0r) );
+        Mu = q0*obj.Sw*obj.cref/(It(2,2)*x0(1))*...
+            ( dCMdM+zT/obj.cref*dCTdM );
+
+        % w derivatives
+        Xw = K1/x0(1) * (CLc-dCDda);
+        Zw = -K1/x0(1)*( CD+dCLda );
+        Mw = q0*obj.Sw*obj.cref/(It(2,2)*x0(1))*dCMda;
+
+        % Unstedy Derivatives
+        Zwd = -0.5*dCLdad/mu0;
+        Mwd = 0.25*rho*obj.Sw*obj.cref^2/It(2,2)*dCMdad;
+
+        % Dynamic Derivatives
+        Mq = 0.25*rho*x0(1)*obj.Sw*obj.cref^2/It(2,2)*dCMdq;
+        Zq = -x0(1)*0.5/mu0*dCLdq;
+
+        K2 = Mwd/(1-Zwd);
+
+        % Control Derivatives
+        Xde = 0;                                                % AGGIUNGERE VARIAZIONE dCD
+        Zde = K1*dCLdDe;
+        Mde = q0*obj.Sw*obj.cref/It(2,2)*dCMdDe;
+
+        Xdt = K1*( K0 + Kv/( x0(1) )^3 );                       % Constant Power
+        Zdt = 0;                                                % Thrust alignex with speed
+        Mdt = obj.EnPs(3)/obj.cref*CT;
         
-        function lam = CheckCont(obj,xtest,Kp,Ki,Kb)
-        %CHECKCONT: Function that calculates the roots of the
-        %characteristic equation for a given gain matrix on all conditions
-        %given by xref
+        MTlong = diag([1/x0(1),1/x0(1),obj.cref*0.5/x0(1),1,1,1]);%Matrix used to scale the mode shapes
 
-        Kg = [Kp+Kb;Ki]; lam = nan(length(xtest(:,1)),5); % Works only with 5 state variables
-        for i = 1:length(xtest(:,1))
-            [A,B,C,D] = obj.LongLinSys( xtest(i,1:3),xtest(i,4) );
-            Ai = [A,B;zeros(2,5)]; Bi = [B,zeros(3,2);zeros(2,2),eye(2)];
-            Ci = [C,zeros(4,2)];
-            lam(i,:) = eig(Ai - Bi*Kg*Ci)';
+        %% Longitudinal State Matrix
 
-        end
+        Alon = [ Xu        , Xw         , 0                , -g*cos(x0(11)); ...
+            Zu        , Zw         , Zq+x0(1)         , -g*sin(x0(11));...
+            Mu + K2*Zu, Mw + K2*Zw , Mq + K2*(Zq+x0(1)), -K2*g*sin(x0(11))
+            0,0,1,0];                                       % Reduced Longitudinal State Matrix
 
-        end
+        Alon2 = [Alon(1:3,1:3),zeros(3,2),Alon(1:3,4);...
+            zeros(2,6);Alon(4,1:3),zeros(1,2),Alon(4,1) ];       % Complete Longitudinal State Matrix
+
+        Alon2(1,2) = Alon2(1,2) - x0(5);
+
+        Alon2(2,1) = Alon2(2,1) - x0(5); Alon2(2,:) = Alon2(2,:)/(1-Zwd);
+        Alon2(3,1) = Alon2(3,1) + x0(5)/(1-Zwd);
+        Alon2(4:5,1:2) = [ cos(x0(11)),sin(x0(11));-sin(x0(11)),cos(x0(11))];
+        Alon2(4:5,6) = [-sin(x0(11))*x0(1);-cos(x0(11))*x0(1)];
+
+        Blon = [Xdt,Xde; Zdt,Zde; Mdt+K2*Zdt,Mde+K2*Zde;0,0];
+        Blon(2,:) = Blon(2,:)/(1-Zwd);
+
+        %% LATERO-DIRECTIONAL
+
+        Ipxx = ( It(1,1)*It(3,3) - It(1,3)^2 )/It(3,3);
+        Ipzz = ( It(1,1)*It(3,3) - It(1,3)^2 )/It(1,1);
+        Ipxz = ( It(1,3)^2 - It(1,1)*It(3,3) )/It(1,3); % Opposite sign wrt 16.242
+
+
+        Yv = obj.Cyb(M,Re)/x0(1)*q0*obj.Sw; % dYdB * 1/U0
+        Yp = obj.Cyp(M,Re,alpha0)*q0*obj.Sw*0.5*obj.bw/x0(1);
+        Yr = 0;
+
+        Rollv = q0*obj.Sw*obj.bw*obj.Clb(M,Re,alpha0)/x0(1);
+        Rollp = q0*obj.Sw*obj.bw*obj.Clp(M,Re,alpha0)*obj.bw*0.5/x0(1);
+        Rollr = q0*obj.Sw*obj.bw*obj.Clr(M,Re,alpha0)*obj.bw*0.5/x0(1);
+
+        Yawv = q0*obj.Sw*obj.bw*obj.Cnb(M,Re)/x0(1);
+        Yawp = q0*obj.Sw*obj.Cnp(M,Re,alpha0)*obj.bw*0.5/x0(1);
+        Yawr = q0*obj.Sw*obj.Cnr(M,Re,alpha0)*obj.bw*0.5/x0(1);
+
+        Yda = 0;
+        Ydr = 0;
+        Rollda = 0;
+        Rolldr = 0;
+        Yawda = 0;
+        Yawdr = 0;
+
+        Alatdir = [Yv/x0(13)             , Yp/x0(13) , Yr/x0(13) - x0(1)       , 0 , g*cos(x0(11)) , 0 ;...
+            Rollv/Ipxx + Yawv/Ipxz , 0         , 0                       , 0 , 0             , 0;...
+            Rollv/Ipxz + Yawv/Ipzz , 0         , 0                       , 0 , 0             , 0;
+            1                    , 0         , 0                       , 0 ,0         , cos(x0(11))*x0(1);...
+            0                    , 1         , sin(x0(11))/cos(x0(11)) , 0 , x0(5)*sin(x0(11))/cos(x0(11)),0;...
+            0                    , 0         , 1/cos(x0(11))           , 0 , x0(5)/cos(x0(11)) ,0 ];
+        Alatdir(2,2) = ( Rollp-It(1,3)*x0(5) )/Ipxx + ...
+            ( Yawp + ( It(2,2)-It(3,3) ) *x0(5) )/Ipxz;     % It(1,3) with changed sign
+        Alatdir(2,3) = ( Yawr + It(1,3)*x0(5) )/Ipxz + ...
+            ( Rollr + ( It(2,2)-It(3,3) )*x0(5) )/Ipxx;
+        Alatdir(3,2) = ( Rollp+It(1,3)*x0(5) )/Ipxz + ...
+            ( Yawp + ( It(1,1)-It(2,2) )*x0(5) )/Ipzz;
+        Alatdir(3,3) = ( Yawr + It(1,3)*x0(5) )/Ipzz + ...
+            ( Rollr + ( It(2,2)-It(3,3) )*x0(5) )/Ipxz;
+
+        Blatdir = [Yda,Ydr;Rollda/Ipxx+Yawda/Ipxz,Rolldr/Ipxx+Yawdr/Ipxz;...
+            Rollda/Ipxz+Yawda/Ipzz,Rolldr/Ipxz+Yawdr/Ipzz;zeros(3,2)
+            ];
+
+        Blatdir(1,:) = Blatdir(1,:)/x0(13);
+    end
+
+    function [A,B,C,u0] = LongLinSys(obj,x0,m)
+    %LONGLINSYS: This function computes the linearized state-space matrices (A, B, C)
+    %   and the trim control vector (u0) for the reduced longitudinal dynamic
+    %   model (based on NAPE equations) around a reference operating point x0.
+    %   INPUT
+    %   - x0: Vector of longitudinal state variables at the reference condition [Va, ga, h]
+    %        * Va: True Airspeed [m/s]
+    %        * ga: Flight Path Angle [rad]
+    %        * h: Altitude [m]
+    %   - m: Aircraft mass around the reference condition [kg]
+    %   OUTPUT
+    %   - A: State matrix (3x3)
+    %   - B: Input matrix (3x2)
+    %   - C: Output matrix (4x3)
+    %   - u0: Trim control vector [CL0, T0] (2x1)
+    % ------------------------------------------------------------------- %
+        g = 9.81; gm = 1.4;
+        [~, a, p, rho] = atmosisa([0,x0(3)]);
+        % Calculate Mach number and Reynolds number at the reference condition
+        M = x0(1)/a(2); Re = obj.ReCalc(x0(3),M);
+        % Initialize Trim Control Vector u0
+        u0 = zeros(2,1);
+        % Calculate Trim Control Vector u0;
+        u0(1) = m*g*2/(rho(2)*obj.Sw*x0(1)^2); % Trim CL
+        u0(2) = rho(2)*0.5*obj.Sw*...
+            x0(1)^2*obj.polar( M,Re,u0(1) ); % Trim T
         
-        function rt = turnRadius(obj,V,phi)
-        %TURNRADIUS: function that returns the turn radius for a given
-        %speed and weight
-            n = 1/cos(phi);     % Load Factor
-            rt = V^2/(9.81*sqrt(n^2-1));
-        end
+        A = zeros(3);
+        A(1,1) = -rho(2)*x0(1)*obj.Sw*( obj.polar(M,Re,u0(1) ) )/m; % dfVa/dVa
+        A(1,2) = -g*cos(x0(2)); % dfVa/dga
+        A(2,1) = rho(2)*obj.Sw*u0(1)/(2*m) + g/(x0(1)^2)*cos(x0(2)); % dfga/dVa
+        A(2,2) = g/x0(1) * sin(x0(2)); % dfga/dga
+        A(3,1) = sin(x0(2));% dfh/dVa
+        A(3,2) = x0(1)*cos(x0(2));% dfh/dga
         
-        function [Vout,M] = body2NED(obj,Vi,flg,psi,teta,phi)
-        %BODY2NED: function that expresses the vector Vi defined in the
-        %body reference frame into the NED reference and vice-versa
-
-            nps = length(psi); nt = length(teta); nph = length(phi);
-            if nps > 1 && (nps ~= nt) && (nps ~= nph)
-                error('The number of vectors passed must be equal to the number of coordinates, if more than one vector is passed')
-            end
-            Vout = nan(3,nps);
-            for j = 1:nps
-                ct = cos(teta(j)); st = sin(teta(j));
-                cp = cos(phi(j));  sp = sin(phi(j));
-                cps = cos(psi(j)); sps = sin(psi(j));
-
-                M = [ct*cps,ct*sps,-st; ...
-                    -cp*sps+sp*st*cps, cp*cps+sps*st*sp,sp*ct;...
-                    sp*sps+cp*st*cps,-sp*cps++cp*st*sps,ct*cp];     % NED2Body
-                if isequal(flg,'B2N')
-                    M = M';
-                end
-                Vout(:,j) = M*Vi(:);
-            end
-        end
-
-        function [Kb,Kp,Ki] = gain_assign(obj,name)
-            load(name,'Kb','Kp','Ki');
-            %Kb = GNS.Kb;
-            % switch flg
-            %     case 'CLcHd'
-            %         obj.Kp(:,:,1) = Kp; obj.Kb(:,:,1) = Kb; obj.Ki(:,:,1) = Ki;
-            %     case 'CLcV'
-            %         obj.Kp(:,:,2) = Kp; obj.Kb(:,:,2) = Kb; obj.Ki(:,:,2) = Ki;
-            %     case 'CLTcVh'
-            %         obj.Kp(:,:,3) = Kp; obj.Kb(:,:,3) = Kb; obj.Ki(:,:,3) = Ki;
-            % end
-        end
+        B = zeros(3,2);
+        B(1,1) = -rho(2)*x0(1)^2*obj.Sw*obj.K(M,Re)*(u0(1) - obj.CLcdm(M,Re))/m; % dfVa/dCL
+        B(1,2) = 1/m; % dfVa/dT
+        B(2,1) = rho(2)*x0(1)*obj.Sw/(2*m); % dfGa/dCL
         
-        function [Vout,M] = Wind2Body(obj,Vin,flg,alpha,beta)
-        %WIND2BODY
-            na = length(alpha); nb = length(beta); nv = length(Vin(1,:));
-            if na > 1 && (na ~= nb) 
-                error('Number of Angles given is not equal')
+        C = zeros(4,3);
+        M = x0(1)/a(2); MMS = (1+0.5*(gm-1)*M^2)^(1/(gm-1));
+        C(1,1) = a(1)/a(2) * p(2)/p(1) * M*MMS*( p(2)/p(1)*( MMS^gm - 1 ) + 1 )^(-1/gm);
+        C(1,1) = C(1,1)/ sqrt( 2/(gm-1)*( ( p(2)/p(1)*( MMS^gm - 1 ) + 1 )^(1-1/gm) -1 ) ); % dgVIAS/dVa
+        C(1,1) = C(1,1)/0.51444; % VIAS in kts
+        C(2,1) = 1/a(2); % dgM/dVa
+        C(3,3) = 1/0.305;  % dgh/dh in feet
+        C(4,2) = A(3,2)*60/0.305; % dghdot/dga fpm
+        
+    end
+    
+    function lam = CheckCont(obj,xtest,Kp,Ki,Kb)
+    %CHECKCONT: Function that calculates the roots of the
+    %characteristic equation for a given gain matrix on all conditions
+    %given by xref
+
+    Kg = [Kp+Kb;Ki]; lam = nan(length(xtest(:,1)),5); % Works only with 5 state variables
+    for i = 1:length(xtest(:,1))
+        [A,B,C,D] = obj.LongLinSys( xtest(i,1:3),xtest(i,4) );
+        Ai = [A,B;zeros(2,5)]; Bi = [B,zeros(3,2);zeros(2,2),eye(2)];
+        Ci = [C,zeros(4,2)];
+        lam(i,:) = eig(Ai - Bi*Kg*Ci)';
+
+    end
+
+    end
+    
+    function rt = turnRadius(obj,V,phi)
+    %TURNRADIUS: function that returns the turn radius for a given
+    %speed and weight
+        n = 1/cos(phi);     % Load Factor
+        rt = V^2/(9.81*sqrt(n^2-1));
+    end
+    
+    function [Vout,M] = body2NED(~,Vi,flg,psi,teta,phi)
+    %BODY2NED: Performs the coordinate transformation between the Body 
+    % reference frame and the North-East-Down (NED) reference frame, or 
+    % vice-versa. The rotation is defined by the Euler angles: Yaw (psi$), 
+    % Pitch (theta), and Roll (phi).
+    % INPUTS:
+    %   - Vi: Input vector(s) in the starting reference frame [3 x N] 
+    %     Note: The code assumes Vi is a column vector if N=1.
+    %   - flg: String flag defining the transformation direction:
+    %        - 'N2B': NED to Body transformation.
+    %        - 'B2N': Body to NED transformation.
+    %   - psi: Yaw angle (psi) [rad]. Can be a scalar or a vector.
+    %   - teta: Pitch angle (theta) [rad]. Can be a scalar or a vector.
+    %   - phi: Roll angle (phi) [rad]. Can be a scalar or a vector.
+    %
+    % OUTPUTS:
+    %   - Vout: Output vector(s) in the target reference frame [3 x N].
+    %   - M: The Matrix used for the transformation 
+    %      (Note: M is the  NED to Body).
+    % ------------------------------------------------------------------- %
+        nps = length(psi); nt = length(teta); nph = length(phi);
+        %% ------------------------------------------------------------- %%
+        % INPUT VALIDATION
+        % Error check: If multiple angles are passed, all three Euler angles 
+        % (psi, teta, phi) must have the same length.
+        if nps > 1 && (nps ~= nt) && (nps ~= nph)
+            error('Psi, theta, and phi must all have the same length')
+        end
+        Vout = nan(3,nps);
+        %% ------------------------------------------------------------- %%
+        % TRANSFORMATION
+        for j = 1:nps
+            ct = cos(teta(j)); st = sin(teta(j));
+            cp = cos(phi(j));  sp = sin(phi(j));
+            cps = cos(psi(j)); sps = sin(psi(j));
+
+            M = [ct*cps,ct*sps,-st; ...
+                -cp*sps+sp*st*cps, cp*cps+sps*st*sp,sp*ct;...
+                sp*sps+cp*st*cps,-sp*cps++cp*st*sps,ct*cp];     %/* \smash{$\leftarrow [T]_S^B$ \eqref{eq:321Mat}} */
+            if isequal(flg,'B2N')
+                M = M';
             end
-            if nv > 1 && na>1
-                error('You can pass either multiple Angles pairs with one vector, or one lat-long pair with multiple vectors. Not both.')
-            end
-            if ~isequal(flg,'W2B') && ~isequal(flg,'B2W')
-                error('Flaf must be W2B or B2W')
-            end
-            if nv == 1
-                % One vector multiple agles
-                Vout = nan(3,na);
-                for j = 1:na
-                    M = [cos(alpha)*cos(beta) sin(beta) sin(alpha)*cos(beta);...
-                        -cos(alpha)*sin(beta), cos(beta), -sin(alpha)*sin(beta);...
-                        -sin(alpha), 0, cos(alpha) ];   % B2W
-                    if isequal(flg,'W2B')
-                        M = M';
-                    end
-                    Vout(:,j) = M*Vin(:);
-                end
-            else
-                % Multiple vectors, one lat/lon
-                Vout = nan(3,nv);
+            % Apply transformation.
+            Vout(:,j) = M*Vi(:);
+        end
+    end
+
+    function [Kb,Kp,Ki] = gain_assign(obj,name)
+        load(name,'Kb','Kp','Ki');
+        %Kb = GNS.Kb;
+        % switch flg
+        %     case 'CLcHd'
+        %         obj.Kp(:,:,1) = Kp; obj.Kb(:,:,1) = Kb; obj.Ki(:,:,1) = Ki;
+        %     case 'CLcV'
+        %         obj.Kp(:,:,2) = Kp; obj.Kb(:,:,2) = Kb; obj.Ki(:,:,2) = Ki;
+        %     case 'CLTcVh'
+        %         obj.Kp(:,:,3) = Kp; obj.Kb(:,:,3) = Kb; obj.Ki(:,:,3) = Ki;
+        % end
+    end
+    
+    function [Vout,M] = Wind2Body(~,Vin,flg,alpha,beta)
+    %WIND2BODY:Performs the coordinate transformation between the Wind
+    % reference frame and the Body reference frame, or vice-versa.
+    % The rotation is defined by the Angle of Attack and the 
+    % Sideslip Angle
+    % % INPUTS:
+    %   - Vin: Input vector(s) in the starting reference frame [3 x N]
+    %   - flg: String flag defining the transformation direction:
+    %        - 'W2B': Wind to Body transformation (M = M_W2B).
+    %        - 'B2W': Body to Wind transformation (M = M_B2W).
+    %   - alpha: Angle of Attack [rad]. Can be a scalar or a vector.
+    %   - beta: Sideslip Angle [rad]. Can be a scalar or a vector.
+    %
+    % OUTPUTS:
+    %   - Vout: Output vector(s) in the target reference frame [3 x N].
+    %   - M: The Matrix used for the transformation.
+    % ------------------------------------------------------------------- %
+        na = length(alpha); nb = length(beta); nv = length(Vin(1,:));
+        %% ------------------------------------------------------------- %%
+        % INPUT VALIDATION
+        % Error check 1: If multiple angles are passed, alpha and beta must have the same length.
+        if na > 1 && (na ~= nb) 
+            error('Number of Angles given is not equal')
+        end
+        % Error check 2: Cannot pass multiple vectors AND multiple angle pairs.
+        if nv > 1 && na>1
+            error('You can pass either multiple Angles pairs with one vector, or one lat-long pair with multiple vectors. Not both.')
+        end
+        % Error check 3: Flag must be 'W2B' (Wind to Body) or 'B2W' (Body to Wind).
+        if ~isequal(flg,'W2B') && ~isequal(flg,'B2W')
+            error('Flaf must be W2B or B2W')
+        end
+        %% ------------------------------------------------------------- %%
+        % TRANSFORMATION
+        if nv == 1 
+            % Case 1: One vector, multiple angle pairs (na > 1).
+            Vout = nan(3,na);
+            % Loop over each angle pair.
+            for j = 1:na
                 M = [cos(alpha)*cos(beta) sin(beta) sin(alpha)*cos(beta);...
                     -cos(alpha)*sin(beta), cos(beta), -sin(alpha)*sin(beta);...
                     -sin(alpha), 0, cos(alpha) ];   % B2W
                 if isequal(flg,'W2B')
                     M = M';
                 end
-                for j = 1:nv
-                    Vout(:,j) = M*Vin(:,j);
-                end
+                % Apply transformation.
+                Vout(:,j) = M*Vin(:);
+            end
+        else
+            % Case 2: Multiple vectors (nv > 1), one angle pair (na = 1).
+            Vout = nan(3,nv);
+            M = [cos(alpha)*cos(beta) sin(beta) sin(alpha)*cos(beta);...
+                -cos(alpha)*sin(beta), cos(beta), -sin(alpha)*sin(beta);...
+                -sin(alpha), 0, cos(alpha) ];   %/* \smash{$\leftarrow [T]_B^W$ \eqref{eq:B2W}} */
+            if isequal(flg,'W2B')
+                M = M'; %/* \smash{$\leftarrow [T]_W^B$ Trasposta di \eqref{eq:B2W}} */
+            end
+            % Apply the single transformation matrix to all input vectors.
+            for j = 1:nv
+                Vout(:,j) = M*Vin(:,j);
             end
         end
-
-        function dxdt = DynEqs6DoF(obj,x,u)
-        %DYNEQS6DOF: Function that returns the RHS of the 6 DoF dynamic
-        %euqation for the rigid body aircraft with linear dynamics.
-        %   INPUT
-        %   - x : [u,v,w,p,q,r,xcg,ycg,zcg,phi,teta,psi]
-        %   - u : [deltaT,deltaE,deltaA,deltaR]
-        % Tested with a Trim condition.
-        % --------------------------------------------------------------- %
-            [~,a,~,rho] = atmosisa( -x(9) );
-            V0 = norm(x(1:3),2); alphar = atan(x(3)/x(1)); betar = asin( x(2)/V0 );
-            alpha = alphar * 180/pi; beta = betar*180/pi;       % Angles in degrees
-            q0 = 0.5*rho*V0^2 ;
-            M = V0/a; Re = obj.ReCalc(-x(9),M);
-            [~,MW2B] = obj.Wind2Body([0;0;0],'W2B',alphar,betar);      % Wind to Body axes. angles in radiants
-
-            omt = [ 0 -x(6), x(5); x(6), 0 , -x(4); -x(5), x(4) , 0 ]; % Cross product operator omega x
-
-            [~,MB2N] = obj.body2NED([1;0;0],'B2N',x(12),x(11),x(10)); % Body 2 NED matrix psi teta phi
-            Gimb = [ 1 , sin( x(10) )*sin( x(11) )/cos( x(11) ), cos( x(10) )*sin( x(11) )/cos( x(11) );...
-                    0 , cos( x(10) )           , - sin(x(10)); ...
-                    0 , sin( x(10) )/cos(x(11)), cos(x(10))/cos(x(11)) ]; % Gimbal equations
-            %% Mass Matrix
-           Mwd = q0*obj.Sw*obj.cref^2*0.5/V0*obj.CMad(M,Re,alpha)...
-               *x(1)/(x(1)^2+x(3)^2);           % Unsteady Moment derivative
-           Zwd = q0*obj.Sw*obj.cref*0.5/V0*obj.CLad(M,Re,alpha)...
-               *x(1)/(x(1)^2+x(3)^2);           % Unsteady Lift derivative
-
-           Mass = eye(12);                          % Inverse of mass matrix
-           Mass(1,1) = 1/x(13); Mass(2,2) = 1/x(13); Mass(3,3) = 1/(x(13)-Zwd);
-           Mass(4,4) = obj.I(3,3)/( obj.I(1,1)*obj.I(3,3) - obj.I(1,3)^2 );
-           Mass(4,6) = obj.I(1,3)/( obj.I(1,3)^2 - obj.I(1,1)*obj.I(3,3) );
-           Mass(5,3) = Mwd/( obj.I(2,2)*(x(13)-Zwd) );
-           Mass(5,5) = 1/obj.I(2,2);
-           Mass(6,4) = obj.I(1,3)/( obj.I(1,3)^2 - obj.I(1,1)*obj.I(3,3) );
-           Mass(6,6) = obj.I(1,1)/( obj.I(1,1)*obj.I(3,3) - obj.I(1,3)^2 );
-            
-            %% Forces
-            % Aerodynamic
-            L = q0*obj.Sw*( obj.CL(M,Re,alpha) + obj.CLde(M,Re,u(2)) + ...
-                obj.CLq(M,Re)*x(5)*obj.cref*0.5/V0 ); 
-            D = q0*obj.Sw*obj.polar( M,Re,...
-                obj.CL(M,Re,alpha)+ obj.CLde(M,Re,u(2)) );
-            Y = q0*obj.Sw*( obj.Cyb(M,Re)*betar + obj.Cyp(M,Re,alpha)*x(4)*obj.bw*0.5/V0 );
-            % Propulsion
-            T = obj.Thrust_Model(-x(9),V0,u(1),'complx');
-            %T = obj.Thrust_Model(-x(9),V0,u(1),'simple');
-            % Total
-            F = zeros(13,1);
-            F(1:3) = MB2N'*[0;0;9.81*x(13)] + MW2B*[-D;-Y;-L] + [T;0;0];
-
-            % Moments in Stability Axes
-            % Aerodynamic
-            Roll = q0*obj.Sw*obj.bw*( obj.Clb(M,Re,alpha)*betar + ...
-                obj.Clp(M,Re,alpha)*x(4)*obj.bw*0.5/V0 + ...
-                obj.Clr(M,Re,alpha)*x(6)*obj.bw*0.5/V0 ); 
-
-            Pitch = q0*obj.Sw*obj.cref*( obj.CM(M,Re,alpha) + ...
-                obj.CMq(M,Re)*x(5)*obj.cref*0.5/V0 + obj.CMde(M,Re,u(2)) );
-
-            Yaw = q0*obj.Sw*obj.bw*( obj.Cnb(M,Re)*betar + ...
-                obj.Cnp(M,Re,alpha)*x(4)*obj.bw*0.5/V0 + ...
-                obj.Cnr(M,Re,alpha)*x(6)*obj.bw*0.5/V0 );
-
-            [~,MW2B] = obj.Wind2Body([1;0;0],'W2B',alphar,0);     % Stability to Body
-
-            % Propulsion
-            r =   obj.CG(:) - obj.EnPs(:); % It shoul be xT - xCG but they are expressed in constructive frame so the transformation changes signs
-            r(2) = 0; % Symmetric thrust only
-            rtl = [0,-r(3),r(2);r(3),0,-r(1);-r(2),r(1),0];     % Cross product matrix r X
-            
-            % Total
-            F(4:6) = rtl*[T;0;0] + MW2B*[Roll;Pitch;Yaw];   
-
-            %% RHS
-            dxdt = zeros(13,1);
-            dxdt(1:12) = Mass*( ...
-                [ -x(13)*omt , zeros(3,9); ...
-                zeros(3) , -omt*obj.I , zeros(3,6);...
-                zeros(3,6), MB2N ,zeros(3); ...
-                zeros(3,9),Gimb] * [x(1:6);x(1:6)] + F(1:12) );     
-            
-
-        end
-        
-        function [F,FA,FT,FW] = Forces(obj,x,u,t)
-        %FORCES: Function that calculates the forces and moments % TODO
-        %FINIRE!!!!!!
-        %
-        %   INPUT:
-        %   - x: State Vector
-        %   
-        %   OUTPUT
-        %   - F: Forces in Axes Body
-        nv = length(x(1,:)); 
-        F = zeros(6,nv);
-        FA = F; FT = F; FW = F;
-        for i = 1:nv
-            [~,a,~,rho] = atmosisa( -x(9,i) );
-            V0 = norm(x(1:3),2); alphar = atan(x(3,i)/x(1,i)); betar = asin( x(2,i)/V0 );
-            alpha = alphar * 180/pi; beta = betar*180/pi;       % Angles in degrees
-            q0 = 0.5*rho*V0^2 ;
-            M = V0/a; Re = obj.ReCalc(-x(9,i),M);
-            [~,MW2B] = obj.Wind2Body([0;0;0],'W2B',alphar,betar);      % Wind to Body axes. angles in radiants
-            [~,MB2N] = obj.body2NED([1;0;0],'B2N',x(12),x(11),x(10)); % Body 2 NED matrix psi teta phi
-            %% Forces
-            % Aerodynamic
-            L = q0*obj.Sw*( obj.CL(M,Re,alpha) + obj.CLde(M,Re,u(2)) + ...
-                obj.CLq(M,Re)*x(5)*obj.cref*0.5/V0 );
-            D = q0*obj.Sw*obj.polar( M,Re,...
-                obj.CL(M,Re,alpha)+ obj.CLde(M,Re,u(2)) );
-            Y = q0*obj.Sw*obj.Cyb(M,Re)*beta;
-            % Propulsion
-            T = obj.Thrust_Model(-x(9,i),V0,u(1),'complx');
-
-            % Total
-            
-            F(1:3,i) = MB2N'*[0;0;9.81*x(13,i)] + MW2B*[-D;-Y;-L] + [T;0;0];
-
-            % Moments in Stability Axes
-            % Aerodynamic
-            Roll = q0*obj.Sw*obj.bw*( obj.Clb(M,Re,alpha)*betar + ...
-                obj.Clp(M,Re,alpha)*x(4,i)*obj.bw*0.5/V0 + ...
-                obj.Clr(M,Re,alpha)*x(6,i)*obj.bw*0.5/V0 );
-
-            Pitch = q0*obj.Sw*obj.cref*( obj.CM(M,Re,alpha) + ...
-                obj.CMq(M,Re)*x(5,i)*obj.cref*0.5/V0 + obj.CMde(M,Re,u(2)) );
-
-            Yaw = q0*obj.Sw*obj.bw*( obj.Cnb(M,Re)*betar + ...
-                obj.Cnp(M,Re,alpha)*x(4,i)*obj.bw*0.5/V0 + ...
-                obj.Cnr(M,Re,alpha)*x(6,i)*obj.bw*0.5/V0 );
-            temp2(i,:) = [T,D,L,obj.CL(M,Re,alpha),obj.polar( M,Re,...
-                obj.CL(M,Re,alpha)+ obj.CLde(M,Re,u(2)) ),...
-                obj.CL(M,Re,alpha)+ obj.CLde(M,Re,u(2)), ...
-                obj.CL(M,Re,alpha)+ obj.CLde(M,Re,u(2))+obj.CLq(M,Re)*x(5)*obj.cref*0.5/V0];
-            temp(i,:) = [ alpha, q0*obj.Sw*obj.cref, obj.CM(M,Re,alpha), ...
-                obj.CMq(M,Re)*x(5,i)*obj.cref*0.5/V0 , obj.CMde(M,Re,u(2)),...
-                ( obj.CM(M,Re,alpha) + ...
-                obj.CMq(M,Re)*x(5,i)*obj.bw*0.5/V0 + obj.CMde(M,Re,u(2)) ) ];
-            temp3(i,:) = [Roll,Pitch,Yaw];
-            [~,MW2B] = obj.Wind2Body([1;0;0],'W2B',alphar,0);     % Stability to Body
-
-            % Propulsion
-            r =   obj.CG(:) - obj.EnPs(:); % It shoul be xT - xCG but they are expressed in constructive frame so the transformation changes signs
-            r(2) = 0; % Symmetric thrust only
-            rtl = [0,-r(3),r(2);r(3),0,-r(1);-r(2),r(1),0];     % Cross product matrix r X
-
-            
-            % Total
-            F(4:6,i) = rtl*[T;0;0] + MW2B*[Roll;Pitch;Yaw];
-            % Aerodynamic in Body
-            FA(1:3,i) = MW2B*[-D;-Y;-L]; FA(4:6,i) = MW2B*[Roll;Pitch;Yaw];
-            % Thrust in Body
-            FT(1:3,i) = [T;0;0]; FT(4:6,i) = rtl*[T;0;0];
-            % Weight in Body
-            FW(1:3,i) = MB2N'*[0;0;9.81*x(13,i)];
-        end
-        end
     end
+
+    function dxdt = DynEqs6DoF(obj,x,u)
+    %DYNEQS6DOF: Function that returns the RHS of the 6 DoF dynamic
+    % equation for the rigid body aircraft with linear aerodynamic 
+    % coefficients.
+    %   INPUT
+    %   - x : [u,v,w,p,q,r,xcg,ycg,zcg,phi,teta,psi]
+    %   - u : [deltaT,deltaE,deltaA,deltaR]
+    % OUTPUTS:
+    %   dxdt: Time derivative of the state vector
+    % Tested with a Trim condition.
+    % --------------------------------------------------------------- %
+        [~,a,~,rho] = atmosisa( -x(9) );
+        V0 = norm(x(1:3),2);            % Airspeed [m/s]
+        alphar = atan(x(3)/x(1));       % AoA [rad]
+        betar = asin( x(2)/V0 );        % Sideslip [rad]
+        alpha = alphar * 180/pi;        % AoA [deg]
+        q0 = 0.5*rho*V0^2 ;             % Dynamic Pressure [Pa]
+        M = V0/a;                       % Mach Number
+        Re = obj.ReCalc(-x(9),M);       % Reynolds Number
+        % Transformation Matrices and Operators
+        [~,MW2B] = obj.Wind2Body([0;0;0],'W2B',alphar,0);       % Wind to Body axes. angles in radiants
+        omt = [ 0 -x(6), x(5); x(6), 0 , -x(4); -x(5), x(4) , 0 ];  % Cross product operator omega x
+        [~,MB2N] = obj.body2NED([1;0;0],'B2N',x(12),x(11),x(10));   % Body 2 NED matrix psi teta phi
+        % Gimbal equations
+        Gimb = [ 1 , sin( x(10) )*sin( x(11) )/cos( x(11) ), cos( x(10) )*sin( x(11) )/cos( x(11) );...
+                0 , cos( x(10) )           , - sin(x(10)); ...
+                0 , sin( x(10) )/cos(x(11)), cos(x(10))/cos(x(11)) ]; 
+        %% ------------------------------------------------------------- %%
+        % GENERALIZED MASS MATRIX
+        Mwd = q0*obj.Sw*obj.cref^2*0.5/V0*obj.CMad(M,Re,alpha)...
+            *x(1)/(x(1)^2+x(3)^2);           % Unsteady Moment derivative
+        Zwd = q0*obj.Sw*obj.cref*0.5/V0*obj.CLad(M,Re,alpha)...
+            *x(1)/(x(1)^2+x(3)^2);           % Unsteady Lift derivative
+        % Inverse of mass matrix
+        Mass = eye(12);  %/* \smash{$\leftarrow \textbf{M}^{-1}, \eqref{eq:6DoFEq}$} */
+        Mass(1,1) = 1/x(13); Mass(2,2) = 1/x(13); Mass(3,3) = 1/(x(13)-Zwd);
+        Mass(4,4) = obj.I(3,3)/( obj.I(1,1)*obj.I(3,3) - obj.I(1,3)^2 );
+        Mass(4,6) = obj.I(1,3)/( obj.I(1,3)^2 - obj.I(1,1)*obj.I(3,3) );
+        Mass(5,3) = Mwd/( obj.I(2,2)*(x(13)-Zwd) );
+        Mass(5,5) = 1/obj.I(2,2);
+        Mass(6,4) = obj.I(1,3)/( obj.I(1,3)^2 - obj.I(1,1)*obj.I(3,3) );
+        Mass(6,6) = obj.I(1,1)/( obj.I(1,1)*obj.I(3,3) - obj.I(1,3)^2 );
+
+        %% ------------------------------------------------------------- %%
+        % FORCES
+        % Aerodynamic
+        L = q0*obj.Sw*( obj.CL(M,Re,alpha) + obj.CLde(M,Re,u(2)) + ...
+            obj.CLq(M,Re)*x(5)*obj.cref*0.5/V0 ); 
+        D = q0*obj.Sw*obj.polar( M,Re,...
+            obj.CL(M,Re,alpha)+ obj.CLde(M,Re,u(2)) );
+        Y = q0*obj.Sw*( obj.Cyb(M,Re)*betar + obj.Cyp(M,Re,alpha)*x(4)*obj.bw*0.5/V0 );
+        % Propulsion
+        T = obj.Thrust_Model(-x(9),V0,u(1),'complx'); %/*$\leftarrow$ \verb|Thrust_Model| \autoref{cod:ACclass:Thrust_Model} */
+        % Total
+        F = zeros(13,1);
+        F(1:3) = MB2N'*[0;0;9.81*x(13)] + MW2B*[-D;Y;-L] + [T;0;0]; %% VEDERE SEGNO Y!!!!!
+
+        % Moments in Stability Axes
+        % Aerodynamic
+        Roll = q0*obj.Sw*obj.bw*( obj.Clb(M,Re,alpha)*betar + ...
+            obj.Clp(M,Re,alpha)*x(4)*obj.bw*0.5/V0 + ...
+            obj.Clr(M,Re,alpha)*x(6)*obj.bw*0.5/V0 ); 
+
+        Pitch = q0*obj.Sw*obj.cref*( obj.CM(M,Re,alpha) + ...
+            obj.CMq(M,Re)*x(5)*obj.cref*0.5/V0 + obj.CMde(M,Re,u(2)) );
+
+        Yaw = q0*obj.Sw*obj.bw*( obj.Cnb(M,Re)*betar + ...
+            obj.Cnp(M,Re,alpha)*x(4)*obj.bw*0.5/V0 + ...
+            obj.Cnr(M,Re,alpha)*x(6)*obj.bw*0.5/V0 );
+
+        [~,MW2B] = obj.Wind2Body([1;0;0],'W2B',alphar,0);     % Stability to Body
+
+        % Propulsion
+        % It should be xT - xCG but they are expressed in 
+        % constructive frame so the transformation changes signs
+        r =   obj.CG(:) - obj.EnPs(:); 
+        r(2) = 0; % Symmetric thrust only
+        rtl = [0,-r(3),r(2);r(3),0,-r(1);-r(2),r(1),0];     % Cross product matrix r X
+        
+        % Total
+        F(4:6) = rtl*[T;0;0] + MW2B*[Roll;Pitch;Yaw];   
+
+        %% RHS
+        dxdt = zeros(13,1);
+        dxdt(1:12) = Mass*( ...
+            [ -x(13)*omt , zeros(3,9); ...
+            zeros(3) , -omt*obj.I , zeros(3,6);...
+            zeros(3,6), MB2N ,zeros(3); ...
+            zeros(3,9),Gimb] * [x(1:6);x(1:6)] + F(1:12) ); %/* $\leftarrow \eqref{eq:6DoFEq}$ */
+    end
+    
+    function [F,FA,FT,FW] = Forces(obj,x,u,t)
+    %FORCES: Function that calculates the forces and moments % TODO
+    %FINIRE!!!!!!
+    %
+    %   INPUT:
+    %   - x: State Vector
+    %   
+    %   OUTPUT
+    %   - F: Forces in Axes Body
+    nv = length(x(1,:)); 
+    F = zeros(6,nv);
+    FA = F; FT = F; FW = F;
+    for i = 1:nv
+        [~,a,~,rho] = atmosisa( -x(9,i) );
+        V0 = norm(x(1:3),2); alphar = atan(x(3,i)/x(1,i)); betar = asin( x(2,i)/V0 );
+        alpha = alphar * 180/pi; beta = betar*180/pi;       % Angles in degrees
+        q0 = 0.5*rho*V0^2 ;
+        M = V0/a; Re = obj.ReCalc(-x(9,i),M);
+        [~,MW2B] = obj.Wind2Body([0;0;0],'W2B',alphar,betar);      % Wind to Body axes. angles in radiants
+        [~,MB2N] = obj.body2NED([1;0;0],'B2N',x(12),x(11),x(10)); % Body 2 NED matrix psi teta phi
+        %% Forces
+        % Aerodynamic
+        L = q0*obj.Sw*( obj.CL(M,Re,alpha) + obj.CLde(M,Re,u(2)) + ...
+            obj.CLq(M,Re)*x(5)*obj.cref*0.5/V0 );
+        D = q0*obj.Sw*obj.polar( M,Re,...
+            obj.CL(M,Re,alpha)+ obj.CLde(M,Re,u(2)) );
+        Y = q0*obj.Sw*obj.Cyb(M,Re)*beta;
+        % Propulsion
+        T = obj.Thrust_Model(-x(9,i),V0,u(1),'complx');
+
+        % Total
+        
+        F(1:3,i) = MB2N'*[0;0;9.81*x(13,i)] + MW2B*[-D;-Y;-L] + [T;0;0];
+
+        % Moments in Stability Axes
+        % Aerodynamic
+        Roll = q0*obj.Sw*obj.bw*( obj.Clb(M,Re,alpha)*betar + ...
+            obj.Clp(M,Re,alpha)*x(4,i)*obj.bw*0.5/V0 + ...
+            obj.Clr(M,Re,alpha)*x(6,i)*obj.bw*0.5/V0 );
+
+        Pitch = q0*obj.Sw*obj.cref*( obj.CM(M,Re,alpha) + ...
+            obj.CMq(M,Re)*x(5,i)*obj.cref*0.5/V0 + obj.CMde(M,Re,u(2)) );
+
+        Yaw = q0*obj.Sw*obj.bw*( obj.Cnb(M,Re)*betar + ...
+            obj.Cnp(M,Re,alpha)*x(4,i)*obj.bw*0.5/V0 + ...
+            obj.Cnr(M,Re,alpha)*x(6,i)*obj.bw*0.5/V0 );
+        temp2(i,:) = [T,D,L,obj.CL(M,Re,alpha),obj.polar( M,Re,...
+            obj.CL(M,Re,alpha)+ obj.CLde(M,Re,u(2)) ),...
+            obj.CL(M,Re,alpha)+ obj.CLde(M,Re,u(2)), ...
+            obj.CL(M,Re,alpha)+ obj.CLde(M,Re,u(2))+obj.CLq(M,Re)*x(5)*obj.cref*0.5/V0];
+        temp(i,:) = [ alpha, q0*obj.Sw*obj.cref, obj.CM(M,Re,alpha), ...
+            obj.CMq(M,Re)*x(5,i)*obj.cref*0.5/V0 , obj.CMde(M,Re,u(2)),...
+            ( obj.CM(M,Re,alpha) + ...
+            obj.CMq(M,Re)*x(5,i)*obj.bw*0.5/V0 + obj.CMde(M,Re,u(2)) ) ];
+        temp3(i,:) = [Roll,Pitch,Yaw];
+        [~,MW2B] = obj.Wind2Body([1;0;0],'W2B',alphar,0);     % Stability to Body
+
+        % Propulsion
+        r =   obj.CG(:) - obj.EnPs(:); % It shoul be xT - xCG but they are expressed in constructive frame so the transformation changes signs
+        r(2) = 0; % Symmetric thrust only
+        rtl = [0,-r(3),r(2);r(3),0,-r(1);-r(2),r(1),0];     % Cross product matrix r X
+
+        
+        % Total
+        F(4:6,i) = rtl*[T;0;0] + MW2B*[Roll;Pitch;Yaw];
+        % Aerodynamic in Body
+        FA(1:3,i) = MW2B*[-D;-Y;-L]; FA(4:6,i) = MW2B*[Roll;Pitch;Yaw];
+        % Thrust in Body
+        FT(1:3,i) = [T;0;0]; FT(4:6,i) = rtl*[T;0;0];
+        % Weight in Body
+        FW(1:3,i) = MB2N'*[0;0;9.81*x(13,i)];
+    end
+    end
+end
 end
 
