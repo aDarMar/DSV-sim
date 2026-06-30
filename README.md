@@ -6,9 +6,9 @@ DSV-Sim is a MATLAB tool that allows to study and simulate aircraft dynamics bas
 This project was originally developed as an assignment for the Master's Degree course in *Aircraft Dynamics and Simulation*.
 
 Requires MATLAB 2019b or newer, along with the following toolboxes:
--Mapping Toolbox
--Optimization Toolbox
--Control System Toolbox
+- Mapping Toolbox
+- Optimization Toolbox
+- Control System Toolbox
 
 ---
 
