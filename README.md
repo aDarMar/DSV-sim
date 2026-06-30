@@ -33,3 +33,6 @@ A set of waypoints can be defined in terms of longitude, latitude, speed (IAS) a
 * **Wind Conditions:** A wind map can be optionally defined using [`WindData.m`](WindData.m).
 
 ---
+
+## References
+[1] Mark Peters and Michael A. Konyak. “The engineering analysis and design of the aircraft dynamics model for the FAA target generation facility”. *Seagull Technology, Inc.*, Los Gatos, CA (2012).
